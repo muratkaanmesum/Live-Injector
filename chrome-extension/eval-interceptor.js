@@ -19,7 +19,7 @@
   function shouldBreak(code, pattern) {
     if (!pattern) return false;
     try { return new RegExp(pattern).test(code); }
-    catch (e) { return false; }
+    catch (e) { console.warn('[eval-interceptor] invalid pattern:', e.message); return false; }
   }
 
   function wrapCode(code, tag) {
