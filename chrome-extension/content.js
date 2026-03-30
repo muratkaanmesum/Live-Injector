@@ -65,8 +65,12 @@
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
     if (!('evalInterceptorEnabled' in changes) && !('evalInterceptorPattern' in changes)) return;
-    chrome.storage.local.get(['evalInterceptorEnabled', 'evalInterceptorPattern'], function (result) {
-      applyEvalConfig(result.evalInterceptorEnabled || false, result.evalInterceptorPattern || '');
-    });
+    const enabled = 'evalInterceptorEnabled' in changes
+      ? changes.evalInterceptorEnabled.newValue
+      : document.documentElement.dataset.liEvalEnabled === 'true';
+    const pattern = 'evalInterceptorPattern' in changes
+      ? changes.evalInterceptorPattern.newValue
+      : document.documentElement.dataset.liEvalPattern;
+    applyEvalConfig(enabled || false, pattern || '');
   });
 })();
