@@ -33,6 +33,8 @@ document.addEventListener('DOMContentLoaded', function () {
     chrome.storage.local.set({ clearEvents: clearEventsToggle.checked });
   });
 
+  // ── Eval Interceptor ──────────────────────────────────────────
+
   evalInterceptorToggle.addEventListener('change', () => {
     chrome.storage.local.set({ evalInterceptorEnabled: evalInterceptorToggle.checked });
   });

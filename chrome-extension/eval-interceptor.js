@@ -18,7 +18,11 @@
 
   function shouldBreak(code, pattern) {
     if (!pattern) return false;
-    try { return new RegExp(pattern).test(code); }
+    try {
+      const m = pattern.match(/^\/(.+)\/([gimsuy]*)$/);
+      const re = m ? new RegExp(m[1], m[2]) : new RegExp(pattern);
+      return re.test(code);
+    }
     catch (e) { console.warn('[eval-interceptor] invalid pattern:', e.message); return false; }
   }
 
