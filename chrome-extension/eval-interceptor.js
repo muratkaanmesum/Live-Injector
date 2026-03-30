@@ -1,12 +1,17 @@
 // Eval Interceptor — Live Code Injector v2
 // Runs in MAIN world at document_start.
 // Reads config from document.documentElement.dataset (written by content.js).
+//
+// Patches are installed LAZILY — only when evalInterceptorEnabled is true.
+// When disabled, window.eval and window.Function are left completely untouched
+// so page behaviour is unaffected.
 (function () {
   'use strict';
 
   const _eval = window.eval;
   const _Function = window.Function;
   let counter = 0;
+  let installed = false;
 
   function getConfig() {
     const ds = document.documentElement.dataset;
@@ -27,23 +32,19 @@
   }
 
   function wrapCode(code, tag) {
-    const { enabled, pattern } = getConfig();
-    if (!enabled) return code;
+    const { pattern } = getConfig();
     const n = ++counter;
     const sourceURL = '\n//# sourceURL=eval-interceptor://' + tag + '-' + n + '.js';
     const breakLine = shouldBreak(code, pattern) ? 'debugger;\n' : '';
     return breakLine + code + sourceURL;
   }
 
-  // ── eval patch ────────────────────────────────────────────────────
-  window.eval = function liEval(code) {
+  function liEval(code) {
     if (typeof code !== 'string') return _eval.call(this, code);
     return _eval.call(this, wrapCode(code, 'eval'));
-  };
+  }
 
-  // ── Function patch ────────────────────────────────────────────────
-  // Use Proxy to preserve instanceof, .prototype, and .constructor checks.
-  window.Function = new Proxy(_Function, {
+  const FunctionProxy = new Proxy(_Function, {
     construct: function (target, args) {
       if (args.length > 0 && typeof args[args.length - 1] === 'string') {
         args = args.slice();
@@ -59,4 +60,34 @@
       return Reflect.apply(target, thisArg, args);
     }
   });
+
+  // ── Lazy install / uninstall ──────────────────────────────────────
+
+  function install() {
+    if (installed) return;
+    installed = true;
+    window.eval = liEval;
+    window.Function = FunctionProxy;
+  }
+
+  function uninstall() {
+    if (!installed) return;
+    installed = false;
+    window.eval = _eval;
+    window.Function = _Function;
+  }
+
+  function sync() {
+    getConfig().enabled ? install() : uninstall();
+  }
+
+  // Apply current state (dataset may already be set if content.js ran first)
+  sync();
+
+  // Watch for popup toggle changes bridged via dataset
+  new MutationObserver(sync).observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-li-eval-enabled']
+  });
+
 })();
