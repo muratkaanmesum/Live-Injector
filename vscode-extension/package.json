@@ -1,0 +1,91 @@
+{
+  "name": "live-code-injector-v2",
+  "displayName": "Live Code Injector v2",
+  "description": "Automatically sends saved JavaScript/CSS files to Chrome for live execution (embedded server — no separate process needed)",
+  "version": "2.0.0",
+  "publisher": "live-code-injector",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "liveCodeInjector.enable",
+        "title": "Enable Live Code Injection"
+      },
+      {
+        "command": "liveCodeInjector.disable",
+        "title": "Disable Live Code Injection"
+      },
+      {
+        "command": "liveCodeInjector.startServer",
+        "title": "Start WebSocket Server"
+      },
+      {
+        "command": "liveCodeInjector.stopServer",
+        "title": "Stop WebSocket Server"
+      },
+      {
+        "command": "liveCodeInjector.executeCurrentFile",
+        "title": "Execute Current File in Browser"
+      },
+      {
+        "command": "liveCodeInjector.toggleServer",
+        "title": "Toggle WebSocket Server"
+      }
+    ],
+    "configuration": {
+      "title": "Live Code Injector",
+      "properties": {
+        "liveCodeInjector.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable live code injection"
+        },
+        "liveCodeInjector.serverPort": {
+          "type": "number",
+          "default": 8765,
+          "description": "WebSocket server port (v2 uses 8765 to avoid conflicts with v1)"
+        },
+        "liveCodeInjector.autoStartServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start the embedded WebSocket server on VS Code startup"
+        },
+        "liveCodeInjector.supportedExtensions": {
+          "type": "array",
+          "default": [".js", ".css"],
+          "description": "File extensions to watch for changes"
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "liveCodeInjector.executeCurrentFile",
+          "when": "resourceExtname =~ /\\.(js|css)$/",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "@types/ws": "^8.5.5",
+    "@vscode/vsce": "^3.6.0",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  }
+}
