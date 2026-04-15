@@ -3,13 +3,13 @@
 // Reads config from document.documentElement.dataset (written by content.js).
 //
 // Patches are installed LAZILY — only when evalInterceptorEnabled is true.
-// When disabled, window.eval and window.Function are left completely untouched
-// so page behaviour is unaffected.
+// Only window.eval is intercepted. window.Function is intentionally left
+// untouched: wrapping it (Proxy or plain fn) changes its identity and breaks
+// Vue 2 template compilation on pages like optimus-insight /metrics.
 (function () {
   'use strict';
 
   const _eval = window.eval;
-  const _Function = window.Function;
   let counter = 0;
   let installed = false;
 
@@ -31,12 +31,21 @@
     catch (e) { console.warn('[eval-interceptor] invalid pattern:', e.message); return false; }
   }
 
-  function wrapCode(code, tag) {
+  function classify(code, fallback, n) {
+    const fn = window.__liClassify;
+    return fn ? fn(code, fallback, n) : fallback + '-' + n;
+  }
+
+  function wrapCode(code, fallbackTag) {
     const { pattern } = getConfig();
     const n = ++counter;
-    const sourceURL = '\n//# sourceURL=eval-interceptor://' + tag + '-' + n + '.js';
-    const breakLine = shouldBreak(code, pattern) ? 'debugger;\n' : '';
-    return breakLine + code + sourceURL;
+    const tag = classify(code, fallbackTag, n);
+    const isClassified = tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-');
+    const needsBreak = shouldBreak(code, pattern);
+    if (!isClassified && !needsBreak) return code;
+    const breakLine = needsBreak ? 'debugger;\n' : '';
+    if (!isClassified) return breakLine + code;
+    return breakLine + code + '\n//# sourceURL=eval-interceptor://' + tag + '.js';
   }
 
   function liEval(code) {
@@ -44,37 +53,18 @@
     return _eval.call(this, wrapCode(code, 'eval'));
   }
 
-  const FunctionProxy = new Proxy(_Function, {
-    construct: function (target, args) {
-      if (args.length > 0 && typeof args[args.length - 1] === 'string') {
-        args = args.slice();
-        args[args.length - 1] = wrapCode(args[args.length - 1], 'Function');
-      }
-      return Reflect.construct(target, args, target);
-    },
-    apply: function (target, thisArg, args) {
-      if (args.length > 0 && typeof args[args.length - 1] === 'string') {
-        args = args.slice();
-        args[args.length - 1] = wrapCode(args[args.length - 1], 'Function');
-      }
-      return Reflect.apply(target, thisArg, args);
-    }
-  });
-
   // ── Lazy install / uninstall ──────────────────────────────────────
 
   function install() {
     if (installed) return;
     installed = true;
     window.eval = liEval;
-    window.Function = FunctionProxy;
   }
 
   function uninstall() {
     if (!installed) return;
     installed = false;
     window.eval = _eval;
-    window.Function = _Function;
   }
 
   function sync() {
