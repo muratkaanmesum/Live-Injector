@@ -11,19 +11,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const clearEventsToggle = document.getElementById('clear-events-toggle');
 
-  const evalInterceptorToggle = document.getElementById('eval-interceptor-toggle');
-  const evalPatternInput      = document.getElementById('eval-pattern');
-  const evalPatternError      = document.getElementById('eval-pattern-error');
+  const evalInterceptorToggle   = document.getElementById('eval-interceptor-toggle');
+  const scriptInterceptorToggle = document.getElementById('script-interceptor-toggle');
+  const evalPatternInput        = document.getElementById('eval-pattern');
+  const evalPatternError        = document.getElementById('eval-pattern-error');
 
   // ── Load saved values ──────────────────────────────────────────
 
   chrome.storage.local.get(
-    ['preamble', 'clearEvents', 'evalInterceptorEnabled', 'evalInterceptorPattern'],
-    ({ preamble = '', clearEvents = false, evalInterceptorEnabled = false, evalInterceptorPattern = '' }) => {
-      preambleTA.value              = preamble;
-      clearEventsToggle.checked     = clearEvents;
-      evalInterceptorToggle.checked = evalInterceptorEnabled;
-      evalPatternInput.value        = evalInterceptorPattern;
+    ['preamble', 'clearEvents', 'evalInterceptorEnabled', 'evalInterceptorPattern', 'scriptInterceptorEnabled'],
+    ({ preamble = '', clearEvents = false, evalInterceptorEnabled = false, evalInterceptorPattern = '', scriptInterceptorEnabled = false }) => {
+      preambleTA.value                = preamble;
+      clearEventsToggle.checked       = clearEvents;
+      evalInterceptorToggle.checked   = evalInterceptorEnabled;
+      scriptInterceptorToggle.checked = scriptInterceptorEnabled;
+      evalPatternInput.value          = evalInterceptorPattern;
     }
   );
 
@@ -37,6 +39,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   evalInterceptorToggle.addEventListener('change', () => {
     chrome.storage.local.set({ evalInterceptorEnabled: evalInterceptorToggle.checked });
+  });
+
+  scriptInterceptorToggle.addEventListener('change', () => {
+    chrome.storage.local.set({ scriptInterceptorEnabled: scriptInterceptorToggle.checked });
   });
 
   function saveEvalPattern() {

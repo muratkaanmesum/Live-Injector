@@ -58,19 +58,31 @@
     document.documentElement.dataset.liEvalPattern = pattern || '';
   }
 
-  chrome.storage.local.get(['evalInterceptorEnabled', 'evalInterceptorPattern'], function (result) {
-    applyEvalConfig(result.evalInterceptorEnabled || false, result.evalInterceptorPattern || '');
-  });
+  function applyScriptConfig(enabled) {
+    document.documentElement.dataset.liScriptEnabled = enabled ? 'true' : 'false';
+  }
+
+  chrome.storage.local.get(
+    ['evalInterceptorEnabled', 'evalInterceptorPattern', 'scriptInterceptorEnabled'],
+    function (result) {
+      applyEvalConfig(result.evalInterceptorEnabled || false, result.evalInterceptorPattern || '');
+      applyScriptConfig(result.scriptInterceptorEnabled || false);
+    }
+  );
 
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
-    if (!('evalInterceptorEnabled' in changes) && !('evalInterceptorPattern' in changes)) return;
-    const enabled = 'evalInterceptorEnabled' in changes
-      ? changes.evalInterceptorEnabled.newValue
-      : document.documentElement.dataset.liEvalEnabled === 'true';
-    const pattern = 'evalInterceptorPattern' in changes
-      ? changes.evalInterceptorPattern.newValue
-      : document.documentElement.dataset.liEvalPattern;
-    applyEvalConfig(enabled || false, pattern || '');
+    if ('evalInterceptorEnabled' in changes || 'evalInterceptorPattern' in changes) {
+      const enabled = 'evalInterceptorEnabled' in changes
+        ? changes.evalInterceptorEnabled.newValue
+        : document.documentElement.dataset.liEvalEnabled === 'true';
+      const pattern = 'evalInterceptorPattern' in changes
+        ? changes.evalInterceptorPattern.newValue
+        : document.documentElement.dataset.liEvalPattern;
+      applyEvalConfig(enabled || false, pattern || '');
+    }
+    if ('scriptInterceptorEnabled' in changes) {
+      applyScriptConfig(changes.scriptInterceptorEnabled.newValue || false);
+    }
   });
 })();
