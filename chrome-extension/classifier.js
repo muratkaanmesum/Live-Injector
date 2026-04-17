@@ -30,4 +30,14 @@
     }
     return fallback + '-' + n;
   };
+
+  window.__liClassifyAndNotify = function (code, fallback, n) {
+    const tag = window.__liClassify(code, fallback, n);
+    if (tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-')) {
+      try {
+        window.postMessage({ source: 'li-classifier', tag: tag }, '*');
+      } catch (_) { /* postMessage can throw on detached windows */ }
+    }
+    return tag;
+  };
 })();
