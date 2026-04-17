@@ -72,7 +72,10 @@
   // ── Break-set bridge (chrome.storage → MAIN world dataset) ───────
   function applyBreakSet(map) {
     const list = (map && map[location.origin]) || [];
-    document.documentElement.dataset.liBreakTags = JSON.stringify(list);
+    const next = JSON.stringify(list);
+    if (document.documentElement.dataset.liBreakTags !== next) {
+      document.documentElement.dataset.liBreakTags = next;
+    }
   }
 
   chrome.storage.local.get(['liBreakTags'], (result) => {
@@ -94,15 +97,14 @@
 
   // ── Tag-seen bridge (MAIN world → DevTools panel) ────────────────
   window.addEventListener('message', (e) => {
-    if (e.source !== window) return;
+    if (e.source !== window || e.origin !== location.origin) return;
     const data = e.data;
     if (!data || data.source !== 'li-classifier' || !data.tag) return;
     try {
-      chrome.runtime.sendMessage({
-        type: 'li-tag-seen',
-        tag: data.tag,
-        origin: location.origin
-      });
+      chrome.runtime.sendMessage(
+        { type: 'li-tag-seen', tag: data.tag, origin: location.origin },
+        () => void chrome.runtime.lastError
+      );
     } catch (_) { /* runtime may be unavailable during tab teardown */ }
   });
 })();

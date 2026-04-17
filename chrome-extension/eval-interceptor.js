@@ -22,11 +22,8 @@
     return fn ? fn(code, fallback, n) : fallback + '-' + n;
   }
 
-  let _cachedBreakSet = undefined; // undefined = not yet read
   function getBreakSet() {
-    if (_cachedBreakSet !== undefined) return _cachedBreakSet;
-    _cachedBreakSet = window.__liGetBreakSet ? window.__liGetBreakSet() : null;
-    return _cachedBreakSet;
+    return window.__liGetBreakSet ? window.__liGetBreakSet() : null;
   }
 
   function wrapCode(code, fallbackTag) {
@@ -66,12 +63,7 @@
   sync();
 
   // Watch for popup toggle changes bridged via dataset
-  new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      if (m.attributeName === 'data-li-break-tags') _cachedBreakSet = undefined;
-    }
-    sync();
-  }).observe(document.documentElement, {
+  new MutationObserver(sync).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-li-eval-enabled', 'data-li-break-tags']
   });

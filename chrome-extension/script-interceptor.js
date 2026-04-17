@@ -17,11 +17,8 @@
     return { enabled: ds.liScriptEnabled === 'true' };
   }
 
-  let _cachedBreakSet = undefined;
   function getBreakSet() {
-    if (_cachedBreakSet !== undefined) return _cachedBreakSet;
-    _cachedBreakSet = window.__liGetBreakSet ? window.__liGetBreakSet() : null;
-    return _cachedBreakSet;
+    return window.__liGetBreakSet ? window.__liGetBreakSet() : null;
   }
 
   function tagScript(node) {
@@ -77,12 +74,7 @@
 
   sync();
 
-  new MutationObserver((mutations) => {
-    for (const m of mutations) {
-      if (m.attributeName === 'data-li-break-tags') _cachedBreakSet = undefined;
-    }
-    sync();
-  }).observe(document.documentElement, {
+  new MutationObserver(sync).observe(document.documentElement, {
     attributes: true,
     attributeFilter: ['data-li-script-enabled', 'data-li-break-tags']
   });

@@ -36,7 +36,7 @@
     const tag = _liClassify(code, fallback, n);
     if (tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-')) {
       try {
-        window.postMessage({ source: 'li-classifier', tag: tag }, '*');
+        window.postMessage({ source: 'li-classifier', tag: tag }, location.origin);
       } catch (_) { /* postMessage can throw on detached windows */ }
     }
     return tag;
