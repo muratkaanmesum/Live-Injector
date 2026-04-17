@@ -53,9 +53,8 @@
   // eval-interceptor.js runs in MAIN world and cannot access chrome.storage.
   // We bridge settings via dataset attributes on <html> so both worlds can read them.
 
-  function applyEvalConfig(enabled, pattern) {
+  function applyEvalConfig(enabled) {
     document.documentElement.dataset.liEvalEnabled = enabled ? 'true' : 'false';
-    document.documentElement.dataset.liEvalPattern = pattern || '';
   }
 
   function applyScriptConfig(enabled) {
@@ -63,23 +62,17 @@
   }
 
   chrome.storage.local.get(
-    ['evalInterceptorEnabled', 'evalInterceptorPattern', 'scriptInterceptorEnabled'],
+    ['evalInterceptorEnabled', 'scriptInterceptorEnabled'],
     function (result) {
-      applyEvalConfig(result.evalInterceptorEnabled || false, result.evalInterceptorPattern || '');
+      applyEvalConfig(result.evalInterceptorEnabled || false);
       applyScriptConfig(result.scriptInterceptorEnabled || false);
     }
   );
 
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
-    if ('evalInterceptorEnabled' in changes || 'evalInterceptorPattern' in changes) {
-      const enabled = 'evalInterceptorEnabled' in changes
-        ? changes.evalInterceptorEnabled.newValue
-        : document.documentElement.dataset.liEvalEnabled === 'true';
-      const pattern = 'evalInterceptorPattern' in changes
-        ? changes.evalInterceptorPattern.newValue
-        : document.documentElement.dataset.liEvalPattern;
-      applyEvalConfig(enabled || false, pattern || '');
+    if ('evalInterceptorEnabled' in changes) {
+      applyEvalConfig(changes.evalInterceptorEnabled.newValue || false);
     }
     if ('scriptInterceptorEnabled' in changes) {
       applyScriptConfig(changes.scriptInterceptorEnabled.newValue || false);

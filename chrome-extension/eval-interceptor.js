@@ -13,22 +13,8 @@
   let counter = 0;
   let installed = false;
 
-  function getConfig() {
-    const ds = document.documentElement.dataset;
-    return {
-      enabled: ds.liEvalEnabled === 'true',
-      pattern: ds.liEvalPattern || ''
-    };
-  }
-
-  function shouldBreak(code, pattern) {
-    if (!pattern) return false;
-    try {
-      const m = pattern.match(/^\/(.+)\/([gimsuy]*)$/);
-      const re = m ? new RegExp(m[1], m[2]) : new RegExp(pattern);
-      return re.test(code);
-    }
-    catch (e) { console.warn('[eval-interceptor] invalid pattern:', e.message); return false; }
+  function isEnabled() {
+    return document.documentElement.dataset.liEvalEnabled === 'true';
   }
 
   function classify(code, fallback, n) {
@@ -37,15 +23,11 @@
   }
 
   function wrapCode(code, fallbackTag) {
-    const { pattern } = getConfig();
     const n = ++counter;
     const tag = classify(code, fallbackTag, n);
     const isClassified = tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-');
-    const needsBreak = shouldBreak(code, pattern);
-    if (!isClassified && !needsBreak) return code;
-    const breakLine = needsBreak ? 'debugger;\n' : '';
-    if (!isClassified) return breakLine + code;
-    return breakLine + code + '\n//# sourceURL=eval-interceptor://' + tag + '.js';
+    if (!isClassified) return code;
+    return code + '\n//# sourceURL=eval-interceptor://' + tag + '.js';
   }
 
   function liEval(code) {
@@ -68,7 +50,7 @@
   }
 
   function sync() {
-    getConfig().enabled ? install() : uninstall();
+    isEnabled() ? install() : uninstall();
   }
 
   // Apply current state (dataset may already be set if content.js ran first)

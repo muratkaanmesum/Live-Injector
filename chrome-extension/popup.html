@@ -160,31 +160,6 @@
       .button.save     { background: #4caf50; }
       .button.save:hover { background: #388e3c; }
 
-      .eval-pattern-section {
-        background: white;
-        padding: 15px;
-        border-radius: 6px;
-        margin-bottom: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      }
-      .eval-pattern-section h3 { margin: 0 0 6px 0; font-size: 14px; color: #333; }
-      .eval-pattern-section p  { margin: 0 0 8px 0; font-size: 11px; color: #888; line-height: 1.4; }
-      #eval-pattern {
-        width: 100%;
-        font-family: monospace;
-        font-size: 11px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 6px;
-        box-sizing: border-box;
-        color: #333;
-      }
-      #eval-pattern-error {
-        font-size: 11px;
-        color: #f44336;
-        margin-top: 4px;
-        min-height: 16px;
-      }
     </style>
   </head>
   <body>
@@ -221,7 +196,7 @@
     <div class="toggle-section">
       <div>
         <div class="toggle-label">Eval Interceptor</div>
-        <div class="toggle-sub">Adds sourceURL + <code>debugger;</code> on match</div>
+        <div class="toggle-sub">Adds sourceURL to classified eval'd code</div>
       </div>
       <label class="toggle-switch">
         <input type="checkbox" id="eval-interceptor-toggle" />
@@ -238,13 +213,6 @@
         <input type="checkbox" id="script-interceptor-toggle" />
         <span class="toggle-slider"></span>
       </label>
-    </div>
-
-    <div class="eval-pattern-section">
-      <h3>Debugger Pattern</h3>
-      <p>Regex — prepends <code>debugger;</code> to matching eval'd code.</p>
-      <input type="text" id="eval-pattern" spellcheck="false" placeholder="/myFunction|someModule/i" />
-      <div id="eval-pattern-error"></div>
     </div>
 
     <div class="preamble-section">

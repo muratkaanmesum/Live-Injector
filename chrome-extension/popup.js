@@ -13,19 +13,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const evalInterceptorToggle   = document.getElementById('eval-interceptor-toggle');
   const scriptInterceptorToggle = document.getElementById('script-interceptor-toggle');
-  const evalPatternInput        = document.getElementById('eval-pattern');
-  const evalPatternError        = document.getElementById('eval-pattern-error');
 
   // ── Load saved values ──────────────────────────────────────────
 
   chrome.storage.local.get(
-    ['preamble', 'clearEvents', 'evalInterceptorEnabled', 'evalInterceptorPattern', 'scriptInterceptorEnabled'],
-    ({ preamble = '', clearEvents = false, evalInterceptorEnabled = false, evalInterceptorPattern = '', scriptInterceptorEnabled = false }) => {
+    ['preamble', 'clearEvents', 'evalInterceptorEnabled', 'scriptInterceptorEnabled'],
+    ({ preamble = '', clearEvents = false, evalInterceptorEnabled = false, scriptInterceptorEnabled = false }) => {
       preambleTA.value                = preamble;
       clearEventsToggle.checked       = clearEvents;
       evalInterceptorToggle.checked   = evalInterceptorEnabled;
       scriptInterceptorToggle.checked = scriptInterceptorEnabled;
-      evalPatternInput.value          = evalInterceptorPattern;
     }
   );
 
@@ -43,28 +40,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   scriptInterceptorToggle.addEventListener('change', () => {
     chrome.storage.local.set({ scriptInterceptorEnabled: scriptInterceptorToggle.checked });
-  });
-
-  function saveEvalPattern() {
-    const raw = evalPatternInput.value.trim();
-    if (raw) {
-      try {
-        const match = raw.match(/^\/(.+)\/([gimsuy]*)$/);
-        new RegExp(match ? match[1] : raw, match ? match[2] : '');
-        evalPatternError.textContent = '';
-      } catch (e) {
-        evalPatternError.textContent = 'Invalid regex: ' + e.message;
-        return;
-      }
-    } else {
-      evalPatternError.textContent = '';
-    }
-    chrome.storage.local.set({ evalInterceptorPattern: raw });
-  }
-
-  evalPatternInput.addEventListener('blur', saveEvalPattern);
-  evalPatternInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { saveEvalPattern(); evalPatternInput.blur(); }
   });
 
   // ── Save preamble ──────────────────────────────────────────────
