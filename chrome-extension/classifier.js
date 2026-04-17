@@ -31,13 +31,30 @@
     return fallback + '-' + n;
   };
 
+  const _liClassify = window.__liClassify;
   window.__liClassifyAndNotify = function (code, fallback, n) {
-    const tag = window.__liClassify(code, fallback, n);
+    const tag = _liClassify(code, fallback, n);
     if (tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-')) {
       try {
         window.postMessage({ source: 'li-classifier', tag: tag }, '*');
       } catch (_) { /* postMessage can throw on detached windows */ }
     }
     return tag;
+  };
+
+  let _breakSetWarned = false;
+  window.__liGetBreakSet = function () {
+    const raw = document.documentElement.dataset.liBreakTags;
+    if (!raw) return null;
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) && arr.length ? new Set(arr) : null;
+    } catch (e) {
+      if (!_breakSetWarned) {
+        console.warn('[li-classifier] invalid data-li-break-tags:', e.message);
+        _breakSetWarned = true;
+      }
+      return null;
+    }
   };
 })();

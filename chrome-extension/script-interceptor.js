@@ -17,20 +17,11 @@
     return { enabled: ds.liScriptEnabled === 'true' };
   }
 
-  let warnedBadBreakSet = false;
+  let _cachedBreakSet = undefined;
   function getBreakSet() {
-    const raw = document.documentElement.dataset.liBreakTags;
-    if (!raw) return null;
-    try {
-      const arr = JSON.parse(raw);
-      return Array.isArray(arr) && arr.length ? new Set(arr) : null;
-    } catch (e) {
-      if (!warnedBadBreakSet) {
-        console.warn('[script-interceptor] invalid data-li-break-tags:', e.message);
-        warnedBadBreakSet = true;
-      }
-      return null;
-    }
+    if (_cachedBreakSet !== undefined) return _cachedBreakSet;
+    _cachedBreakSet = window.__liGetBreakSet ? window.__liGetBreakSet() : null;
+    return _cachedBreakSet;
   }
 
   function tagScript(node) {
@@ -46,7 +37,8 @@
     const n = ++counter;
     const classify = window.__liClassifyAndNotify || window.__liClassify || function (_c, f, i) { return f + '-' + i; };
     const tag = classify(code, 'script', n);
-    if (!tag.startsWith('Campaign-')) return;
+    const isClassified = tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-');
+    if (!isClassified) return;
 
     const breakSet = getBreakSet();
     const breakLine = breakSet && breakSet.has(tag) ? 'debugger;\n' : '';
@@ -85,8 +77,13 @@
 
   sync();
 
-  new MutationObserver(sync).observe(document.documentElement, {
+  new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.attributeName === 'data-li-break-tags') _cachedBreakSet = undefined;
+    }
+    sync();
+  }).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-li-script-enabled']
+    attributeFilter: ['data-li-script-enabled', 'data-li-break-tags']
   });
 })();

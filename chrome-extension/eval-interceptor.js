@@ -22,20 +22,11 @@
     return fn ? fn(code, fallback, n) : fallback + '-' + n;
   }
 
-  let warnedBadBreakSet = false;
+  let _cachedBreakSet = undefined; // undefined = not yet read
   function getBreakSet() {
-    const raw = document.documentElement.dataset.liBreakTags;
-    if (!raw) return null;
-    try {
-      const arr = JSON.parse(raw);
-      return Array.isArray(arr) && arr.length ? new Set(arr) : null;
-    } catch (e) {
-      if (!warnedBadBreakSet) {
-        console.warn('[eval-interceptor] invalid data-li-break-tags:', e.message);
-        warnedBadBreakSet = true;
-      }
-      return null;
-    }
+    if (_cachedBreakSet !== undefined) return _cachedBreakSet;
+    _cachedBreakSet = window.__liGetBreakSet ? window.__liGetBreakSet() : null;
+    return _cachedBreakSet;
   }
 
   function wrapCode(code, fallbackTag) {
@@ -75,9 +66,14 @@
   sync();
 
   // Watch for popup toggle changes bridged via dataset
-  new MutationObserver(sync).observe(document.documentElement, {
+  new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      if (m.attributeName === 'data-li-break-tags') _cachedBreakSet = undefined;
+    }
+    sync();
+  }).observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ['data-li-eval-enabled']
+    attributeFilter: ['data-li-eval-enabled', 'data-li-break-tags']
   });
 
 })();
