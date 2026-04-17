@@ -11,6 +11,8 @@
   let breakSet = new Set();
   const counts = new Map();
   const rowEls = new Map();
+  let storedBreakMap = {};
+  let localWriteInFlight = false;
 
   // ── Origin resolution ────────────────────────────────────────────
 
@@ -36,6 +38,7 @@
   function readBreakSetFromStorage() {
     chrome.storage.local.get(['liBreakTags'], (res) => {
       const map = res.liBreakTags || {};
+      storedBreakMap = map;
       const list = (currentOrigin && map[currentOrigin]) || [];
       breakSet = new Set(list);
       rowEls.forEach((_row, tag) => upsertRow(tag));
@@ -44,14 +47,12 @@
 
   function writeBreakSetToStorage() {
     if (!currentOrigin) return;
-    chrome.storage.local.get(['liBreakTags'], (res) => {
-      const map = res.liBreakTags || {};
-      map[currentOrigin] = Array.from(breakSet);
-      chrome.storage.local.set({ liBreakTags: map }, () => {
-        if (chrome.runtime.lastError) {
-          console.warn('[panel] failed to persist break set:', chrome.runtime.lastError.message);
-        }
-      });
+    storedBreakMap[currentOrigin] = Array.from(breakSet);
+    localWriteInFlight = true;
+    chrome.storage.local.set({ liBreakTags: storedBreakMap }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('[panel] failed to persist break set:', chrome.runtime.lastError.message);
+      }
     });
   }
 
@@ -91,12 +92,13 @@
       row.appendChild(countCell);
       row.appendChild(toggleCell);
       rowsEl.appendChild(row);
+      row._countCell   = countCell;
+      row._toggleInput = toggleInput;
       rowEls.set(tag, row);
     }
-    row.children[1].textContent = String(counts.get(tag) || 0);
-    const input = row.children[2].firstChild;
-    input.checked  = breakSet.has(tag);
-    input.disabled = currentOrigin === null;
+    row._countCell.textContent = String(counts.get(tag) || 0);
+    row._toggleInput.checked   = breakSet.has(tag);
+    row._toggleInput.disabled  = currentOrigin === null;
   }
 
   function handleTagSeen(tag) {
@@ -126,6 +128,7 @@
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !('liBreakTags' in changes)) return;
+    if (localWriteInFlight) { localWriteInFlight = false; return; }
     readBreakSetFromStorage();
   });
 
