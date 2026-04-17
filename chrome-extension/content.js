@@ -78,4 +78,18 @@
       applyScriptConfig(changes.scriptInterceptorEnabled.newValue || false);
     }
   });
+
+  // ── Tag-seen bridge (MAIN world → DevTools panel) ────────────────
+  window.addEventListener('message', (e) => {
+    if (e.source !== window) return;
+    const data = e.data;
+    if (!data || data.source !== 'li-classifier' || !data.tag) return;
+    try {
+      chrome.runtime.sendMessage({
+        type: 'li-tag-seen',
+        tag: data.tag,
+        origin: location.origin
+      });
+    } catch (_) { /* runtime may be unavailable during tab teardown */ }
+  });
 })();
