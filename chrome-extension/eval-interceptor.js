@@ -18,8 +18,24 @@
   }
 
   function classify(code, fallback, n) {
-    const fn = window.__liClassify;
+    const fn = window.__liClassifyAndNotify || window.__liClassify;
     return fn ? fn(code, fallback, n) : fallback + '-' + n;
+  }
+
+  let warnedBadBreakSet = false;
+  function getBreakSet() {
+    const raw = document.documentElement.dataset.liBreakTags;
+    if (!raw) return null;
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) && arr.length ? new Set(arr) : null;
+    } catch (e) {
+      if (!warnedBadBreakSet) {
+        console.warn('[eval-interceptor] invalid data-li-break-tags:', e.message);
+        warnedBadBreakSet = true;
+      }
+      return null;
+    }
   }
 
   function wrapCode(code, fallbackTag) {
@@ -27,7 +43,9 @@
     const tag = classify(code, fallbackTag, n);
     const isClassified = tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-');
     if (!isClassified) return code;
-    return code + '\n//# sourceURL=eval-interceptor://' + tag + '.js';
+    const breakSet = getBreakSet();
+    const breakLine = breakSet && breakSet.has(tag) ? 'debugger;\n' : '';
+    return breakLine + code + '\n//# sourceURL=eval-interceptor://' + tag + '.js';
   }
 
   function liEval(code) {
