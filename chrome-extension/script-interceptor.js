@@ -17,6 +17,22 @@
     return { enabled: ds.liScriptEnabled === 'true' };
   }
 
+  let warnedBadBreakSet = false;
+  function getBreakSet() {
+    const raw = document.documentElement.dataset.liBreakTags;
+    if (!raw) return null;
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) && arr.length ? new Set(arr) : null;
+    } catch (e) {
+      if (!warnedBadBreakSet) {
+        console.warn('[script-interceptor] invalid data-li-break-tags:', e.message);
+        warnedBadBreakSet = true;
+      }
+      return null;
+    }
+  }
+
   function tagScript(node) {
     if (!node || node.tagName !== 'SCRIPT') return;
     if (node.__liTagged) return;
@@ -28,11 +44,13 @@
     if (!code.includes('Insider')) return;
 
     const n = ++counter;
-    const classify = window.__liClassify || function (_c, f, i) { return f + '-' + i; };
+    const classify = window.__liClassifyAndNotify || window.__liClassify || function (_c, f, i) { return f + '-' + i; };
     const tag = classify(code, 'script', n);
     if (!tag.startsWith('Campaign-')) return;
 
-    node.textContent = code + '\n//# sourceURL=script-interceptor://' + tag + '.js';
+    const breakSet = getBreakSet();
+    const breakLine = breakSet && breakSet.has(tag) ? 'debugger;\n' : '';
+    node.textContent = breakLine + code + '\n//# sourceURL=script-interceptor://' + tag + '.js';
   }
 
   function liAppendChild(node) {
