@@ -69,6 +69,16 @@
     }
   );
 
+  // ── Break-set bridge (chrome.storage → MAIN world dataset) ───────
+  function applyBreakSet(map) {
+    const list = (map && map[location.origin]) || [];
+    document.documentElement.dataset.liBreakTags = JSON.stringify(list);
+  }
+
+  chrome.storage.local.get(['liBreakTags'], (result) => {
+    applyBreakSet(result.liBreakTags || {});
+  });
+
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
     if ('evalInterceptorEnabled' in changes) {
@@ -76,6 +86,9 @@
     }
     if ('scriptInterceptorEnabled' in changes) {
       applyScriptConfig(changes.scriptInterceptorEnabled.newValue || false);
+    }
+    if ('liBreakTags' in changes) {
+      applyBreakSet(changes.liBreakTags.newValue || {});
     }
   });
 
