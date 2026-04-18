@@ -6,14 +6,16 @@
   const originProtoEl = document.getElementById('origin-proto');
   const originEl      = document.getElementById('origin');
   const emptyEl       = document.getElementById('empty');
-  const tableEl       = document.getElementById('tags');
+  const noResultsEl   = document.getElementById('no-results');
   const rowsEl        = document.getElementById('rows');
 
   let currentOrigin = null;
   let breakSet = new Set();
   const counts = new Map();
   const rowEls = new Map();
-  const groups = new Map(); // base → { headerEl, nameCell, countCell, instanceEls, expanded, total }
+  // base → { groupEl, headerEl, bodyEl, nameCell, instCountCell, breakBadgeEl,
+  //           hitCountCell, instanceEls, expanded, total }
+  const groups = new Map();
   let storedBreakMap = {};
   let localWriteInFlight = false;
 
@@ -22,39 +24,134 @@
   let searchQuery = '';
   let allExpanded = false;
 
+  // ── Helpers ──────────────────────────────────────────────────────
+
   function parseBase(tag) {
     const m = tag.match(/^(.*)-\d+$/);
     return m ? m[1] : tag;
   }
 
+  function svgCaret() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '12'); svg.setAttribute('height', '12');
+    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'currentColor');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M9 6l6 6-6 6z');
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function svgBulkBreak() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '11'); svg.setAttribute('height', '11');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2.5');
+    svg.setAttribute('stroke-linecap', 'round');
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', '12'); circle.setAttribute('cy', '12'); circle.setAttribute('r', '8');
+    svg.appendChild(circle);
+    return svg;
+  }
+
+  // ── Group card creation ──────────────────────────────────────────
+
   function getOrCreateGroup(base) {
     if (groups.has(base)) return groups.get(base);
 
-    const headerEl  = document.createElement('tr');
-    const nameCell  = document.createElement('td');
-    const countCell = document.createElement('td');
-    const emptyCell = document.createElement('td');
+    // card wrapper
+    const groupEl   = document.createElement('div');
+    groupEl.className = 'group';
 
-    headerEl.className  = 'group-header';
-    nameCell.textContent = '▶ ' + base;
-    countCell.className  = 'count';
-    countCell.textContent = '0';
+    // header row
+    const headerEl  = document.createElement('div');
+    headerEl.className = 'group-row';
 
+    const caretWrap = document.createElement('span');
+    caretWrap.className = 'caret';
+    caretWrap.appendChild(svgCaret());
+
+    const nameCell  = document.createElement('span');
+    nameCell.className = 'group-name';
+    nameCell.textContent = base;
+
+    const instCountCell = document.createElement('span');
+    instCountCell.className = 'group-inst-count';
+    instCountCell.textContent = '0 rules';
+
+    const breakBadgeEl = document.createElement('span');
+    breakBadgeEl.className = 'break-badge hidden';
+    breakBadgeEl.textContent = '0';
+
+    const hitCountCell = document.createElement('span');
+    hitCountCell.className = 'group-hit-count';
+    hitCountCell.textContent = '0';
+
+    const bulkBreakBtn = document.createElement('button');
+    bulkBreakBtn.className = 'bulk-break';
+    bulkBreakBtn.title = 'Toggle breakpoints for all rules';
+    bulkBreakBtn.appendChild(svgBulkBreak());
+
+    headerEl.appendChild(caretWrap);
     headerEl.appendChild(nameCell);
-    headerEl.appendChild(countCell);
-    headerEl.appendChild(emptyCell);
-    rowsEl.appendChild(headerEl);
+    headerEl.appendChild(instCountCell);
+    headerEl.appendChild(breakBadgeEl);
+    headerEl.appendChild(hitCountCell);
+    headerEl.appendChild(bulkBreakBtn);
 
-    const group = { headerEl, nameCell, countCell, instanceEls: [], expanded: false, total: 0 };
+    // body (instances)
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'group-body';
 
-    headerEl.addEventListener('click', () => {
+    groupEl.appendChild(headerEl);
+    groupEl.appendChild(bodyEl);
+    rowsEl.appendChild(groupEl);
+
+    const group = {
+      groupEl, headerEl, bodyEl, nameCell, instCountCell,
+      breakBadgeEl, hitCountCell, instanceEls: [], expanded: false, total: 0,
+    };
+
+    headerEl.addEventListener('click', (e) => {
+      if (e.target.closest('.bulk-break')) return;
       group.expanded = !group.expanded;
-      nameCell.textContent = (group.expanded ? '▼ ' : '▶ ') + base;
-      group.instanceEls.forEach(el => { el.style.display = group.expanded ? '' : 'none'; });
+      groupEl.classList.toggle('is-open', group.expanded);
+    });
+
+    bulkBreakBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const anyBreaking = group.instanceEls.some(row => breakSet.has(row._tag));
+      group.instanceEls.forEach(row => {
+        if (anyBreaking) breakSet.delete(row._tag);
+        else             breakSet.add(row._tag);
+      });
+      if (!anyBreaking && !group.expanded) {
+        group.expanded = true;
+        groupEl.classList.add('is-open');
+      }
+      writeBreakSetToStorage();
+      group.instanceEls.forEach(row => syncInstanceRow(row));
+      updateGroupBreakBadge(group);
+      applyFilter();
     });
 
     groups.set(base, group);
     return group;
+  }
+
+  // ── Instance row helpers ─────────────────────────────────────────
+
+  function syncInstanceRow(row) {
+    row._countCell.textContent    = String(counts.get(row._tag) || 0);
+    row._toggleInput.checked      = breakSet.has(row._tag);
+    row.classList.toggle('is-breaking', breakSet.has(row._tag));
+  }
+
+  function updateGroupBreakBadge(group) {
+    const count = group.instanceEls.filter(row => breakSet.has(row._tag)).length;
+    group.breakBadgeEl.textContent = String(count);
+    group.breakBadgeEl.classList.toggle('hidden', count === 0);
+    group.groupEl.classList.toggle('has-breaks', count > 0);
   }
 
   // ── Origin resolution ────────────────────────────────────────────
@@ -99,6 +196,7 @@
       const list = (currentOrigin && map[currentOrigin]) || [];
       breakSet = new Set(list);
       rowEls.forEach((_row, tag) => upsertRow(tag));
+      groups.forEach(group => updateGroupBreakBadge(group));
       applyFilter();
     });
   }
@@ -114,10 +212,9 @@
     });
   }
 
-  // ── Rendering ────────────────────────────────────────────────────
+  // ── Filter ───────────────────────────────────────────────────────
 
   function applyFilter() {
-    const noResultsEl = document.getElementById('no-results');
     const q = searchQuery.toLowerCase();
 
     let hotThreshold = 0;
@@ -140,23 +237,21 @@
         row.classList.toggle('hidden', !visible);
         if (visible) anyInstanceVisible = true;
       });
-      group.headerEl.classList.toggle('hidden', !anyInstanceVisible);
+      group.groupEl.classList.toggle('hidden', !anyInstanceVisible);
       if (anyInstanceVisible) anyGroupVisible = true;
     });
 
     const hasFilterActive = filterMode !== 'all' || searchQuery !== '';
-    if (noResultsEl) {
-      noResultsEl.classList.toggle('hidden', !hasFilterActive || anyGroupVisible || counts.size === 0);
-    }
+    noResultsEl.classList.toggle('hidden', !hasFilterActive || anyGroupVisible || counts.size === 0);
   }
+
+  // ── Rendering ────────────────────────────────────────────────────
 
   function render() {
     if (counts.size === 0) {
       emptyEl.classList.remove('hidden');
-      tableEl.classList.add('hidden');
     } else {
       emptyEl.classList.add('hidden');
-      tableEl.classList.remove('hidden');
       applyFilter();
     }
   }
@@ -167,54 +262,58 @@
 
     let row = rowEls.get(tag);
     if (!row) {
-      row = document.createElement('tr');
-      const tagCell     = document.createElement('td');
-      const countCell   = document.createElement('td');
-      const toggleCell  = document.createElement('td');
+      row = document.createElement('div');
+      row.className = 'instance';
+
+      const dotEl       = document.createElement('span');
+      const nameEl      = document.createElement('span');
+      const countCell   = document.createElement('span');
       const toggleInput = document.createElement('input');
 
-      toggleInput.type = 'checkbox';
+      dotEl.className       = 'instance-dot';
+      nameEl.className      = 'instance-name';
+      nameEl.textContent    = tag;
+      countCell.className   = 'instance-hit-count';
+      toggleInput.type      = 'checkbox';
+      toggleInput.className = 'bp';
+
       toggleInput.addEventListener('change', () => {
         if (toggleInput.checked) {
           breakSet.add(tag);
           if (!group.expanded) {
             group.expanded = true;
-            group.nameCell.textContent = '▼ ' + base;
-            group.instanceEls.forEach(el => { el.style.display = ''; });
+            group.groupEl.classList.add('is-open');
           }
         } else {
           breakSet.delete(tag);
         }
+        syncInstanceRow(row);
+        updateGroupBreakBadge(group);
         writeBreakSetToStorage();
+        applyFilter();
       });
 
-      tagCell.textContent  = tag;
-      tagCell.className    = 'instance-tag';
-      countCell.className  = 'count';
-      toggleCell.className = 'toggle';
-      toggleCell.appendChild(toggleInput);
-      row.appendChild(tagCell);
+      row.appendChild(dotEl);
+      row.appendChild(nameEl);
       row.appendChild(countCell);
-      row.appendChild(toggleCell);
-      row.style.display = 'none';
+      row.appendChild(toggleInput);
+      group.bodyEl.appendChild(row);
 
-      const anchor = group.instanceEls[group.instanceEls.length - 1] || group.headerEl;
-      anchor.after(row);
-
+      row._tag         = tag;
       row._countCell   = countCell;
       row._toggleInput = toggleInput;
-      row._tag         = tag;
       group.instanceEls.push(row);
-      rowEls.set(tag, row);
+
+      // update instance count label
+      group.instCountCell.textContent = group.instanceEls.length + ' rule' +
+        (group.instanceEls.length !== 1 ? 's' : '');
 
       if (breakSet.has(tag) && !group.expanded) {
         group.expanded = true;
-        group.nameCell.textContent = '▼ ' + base;
-        group.instanceEls.forEach(el => { el.style.display = ''; });
+        group.groupEl.classList.add('is-open');
       }
     }
-    row._countCell.textContent = String(counts.get(tag) || 0);
-    row._toggleInput.checked   = breakSet.has(tag);
+    syncInstanceRow(row);
   }
 
   function handleTagSeen(tag) {
@@ -223,7 +322,7 @@
     const group = groups.get(parseBase(tag));
     if (group) {
       group.total++;
-      group.countCell.textContent = String(group.total);
+      group.hitCountCell.textContent = String(group.total);
     }
     render();
   }
@@ -234,32 +333,6 @@
     groups.clear();
     rowsEl.textContent = '';
     render();
-  }
-
-  // ── Event wiring ─────────────────────────────────────────────────
-
-  const inspectedTabId = chrome.devtools && chrome.devtools.inspectedWindow
-    ? chrome.devtools.inspectedWindow.tabId
-    : null;
-
-  chrome.runtime.onMessage.addListener((msg, sender) => {
-    if (!msg || msg.type !== 'li-tag-seen' || !msg.tag) return;
-    if (inspectedTabId != null && sender.tab && sender.tab.id !== inspectedTabId) return;
-    if (!currentOrigin && msg.origin) setOrigin(msg.origin);
-    handleTagSeen(msg.tag);
-  });
-
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'local' || !('liBreakTags' in changes)) return;
-    if (localWriteInFlight) { localWriteInFlight = false; return; }
-    readBreakSetFromStorage();
-  });
-
-  if (chrome.devtools && chrome.devtools.network) {
-    chrome.devtools.network.onNavigated.addListener(() => {
-      clearTags();
-      resolveOrigin();
-    });
   }
 
   // ── Toolbar wiring ───────────────────────────────────────────────
@@ -288,10 +361,9 @@
 
   collapseAllBtn.addEventListener('click', () => {
     allExpanded = !allExpanded;
-    groups.forEach((group, base) => {
+    groups.forEach(group => {
       group.expanded = allExpanded;
-      group.nameCell.textContent = (allExpanded ? '▼ ' : '▶ ') + base;
-      group.instanceEls.forEach(el => { el.style.display = allExpanded ? '' : 'none'; });
+      group.groupEl.classList.toggle('is-open', allExpanded);
     });
     applyFilter();
   });
@@ -300,8 +372,35 @@
     breakSet.clear();
     writeBreakSetToStorage();
     rowEls.forEach((_row, tag) => upsertRow(tag));
+    groups.forEach(group => updateGroupBreakBadge(group));
     applyFilter();
   });
+
+  // ── Event wiring ─────────────────────────────────────────────────
+
+  const inspectedTabId = chrome.devtools && chrome.devtools.inspectedWindow
+    ? chrome.devtools.inspectedWindow.tabId
+    : null;
+
+  chrome.runtime.onMessage.addListener((msg, sender) => {
+    if (!msg || msg.type !== 'li-tag-seen' || !msg.tag) return;
+    if (inspectedTabId != null && sender.tab && sender.tab.id !== inspectedTabId) return;
+    if (!currentOrigin && msg.origin) setOrigin(msg.origin);
+    handleTagSeen(msg.tag);
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !('liBreakTags' in changes)) return;
+    if (localWriteInFlight) { localWriteInFlight = false; return; }
+    readBreakSetFromStorage();
+  });
+
+  if (chrome.devtools && chrome.devtools.network) {
+    chrome.devtools.network.onNavigated.addListener(() => {
+      clearTags();
+      resolveOrigin();
+    });
+  }
 
   // ── Init ─────────────────────────────────────────────────────────
 
