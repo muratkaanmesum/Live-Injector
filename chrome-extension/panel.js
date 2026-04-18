@@ -503,7 +503,9 @@
       pendingGroup.instanceEls.forEach(row => {
         const tag   = row._tag;
         const count = counts.get(tag) || 0;
-        const matchesSearch = !q || tag.toLowerCase().includes(q);
+        const matchesSearch = !q
+          || tag.toLowerCase().includes(q)
+          || (pendingGroup.nameCell && pendingGroup.nameCell.textContent.toLowerCase().includes(q));
         const matchesMode = filterMode === 'all'
           || (filterMode === 'breaking' && breakSet.has(tag))
           || (filterMode === 'hot'      && count >= hotThreshold);
