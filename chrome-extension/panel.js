@@ -891,6 +891,43 @@
     updateStatusBar();
   });
 
+  // ── Interceptor chip wiring ──────────────────────────────────────
+
+  const evalInterceptBtn   = document.getElementById('eval-intercept-toggle');
+  const scriptInterceptBtn = document.getElementById('script-intercept-toggle');
+
+  function setChipState(btn, active) {
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  }
+
+  chrome.storage.local.get(['evalInterceptorEnabled', 'scriptInterceptorEnabled'], (result) => {
+    setChipState(evalInterceptBtn,   result.evalInterceptorEnabled   ?? true);
+    setChipState(scriptInterceptBtn, result.scriptInterceptorEnabled ?? true);
+  });
+
+  evalInterceptBtn.addEventListener('click', () => {
+    const next = !evalInterceptBtn.classList.contains('is-active');
+    setChipState(evalInterceptBtn, next);
+    chrome.storage.local.set({ evalInterceptorEnabled: next });
+  });
+
+  scriptInterceptBtn.addEventListener('click', () => {
+    const next = !scriptInterceptBtn.classList.contains('is-active');
+    setChipState(scriptInterceptBtn, next);
+    chrome.storage.local.set({ scriptInterceptorEnabled: next });
+  });
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if ('evalInterceptorEnabled' in changes) {
+      setChipState(evalInterceptBtn, changes.evalInterceptorEnabled.newValue ?? true);
+    }
+    if ('scriptInterceptorEnabled' in changes) {
+      setChipState(scriptInterceptBtn, changes.scriptInterceptorEnabled.newValue ?? true);
+    }
+  });
+
   // ── Keyboard shortcuts ───────────────────────────────────────────
 
   document.addEventListener('keydown', (e) => {

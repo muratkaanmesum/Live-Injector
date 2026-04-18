@@ -179,6 +179,23 @@
       }
       .toolbar-btn:hover { background: var(--surface); color: var(--text); }
       .toolbar-btn.is-danger:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+      .toolbar-divider {
+        width: 1px; height: 16px; background: var(--border); flex-shrink: 0; margin: 0 2px;
+      }
+      .toolbar-chip {
+        height: 27px; padding: 0 9px; border-radius: var(--radius-md);
+        border: 1px solid var(--border); color: var(--text-3);
+        display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+        font-size: 11px; white-space: nowrap;
+        transition: background var(--dur) var(--ease), color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+      }
+      .toolbar-chip:hover { background: var(--surface); color: var(--text); }
+      .toolbar-chip.is-active {
+        background: oklch(0.67 0.12 191 / 0.15);
+        border-color: var(--accent-rule);
+        color: var(--accent-rule);
+      }
+      .toolbar-chip.is-active:hover { background: oklch(0.67 0.12 191 / 0.22); }
 
       /* ── scroll area ────────────────────────────────────────────────── */
       .scroll { overflow-y: auto; padding: 8px 8px 32px; }
@@ -508,6 +525,19 @@
           <button data-filter="breaking">Breaking</button>
           <button data-filter="hot">Hot</button>
         </div>
+        <div class="toolbar-divider" aria-hidden="true"></div>
+        <button class="toolbar-chip is-active" id="eval-intercept-toggle" title="Toggle eval() interceptor" aria-pressed="true">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          Eval
+        </button>
+        <button class="toolbar-chip is-active" id="script-intercept-toggle" title="Toggle &lt;script&gt; tag interceptor" aria-pressed="true">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+          Script
+        </button>
         <button class="toolbar-btn" id="collapse-all-btn" title="Collapse / expand all">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="17 8 12 3 7 8"/><polyline points="17 16 12 21 7 16"/>
