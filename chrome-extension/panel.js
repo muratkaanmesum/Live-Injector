@@ -22,7 +22,7 @@
   const hitLog = new Map(); // tag → number[] (timestamps of last 8 hits)
 
   // New state for builder-keyed grouping
-  const builderMetaCache    = new Map(); // builderId → {builderId, variationId, builderName}
+  const builderMetaCache    = new Map(); // builderId → {builderId, variationId}
   const varIdToBuilder      = new Map(); // variationId (string) → builderId (string)
   const resolvingVarIds     = new Set(); // variationId strings with active resolveBuilderMeta
   const resolvingBuilderIds = new Set(); // builderId strings with active resolveBuilderMeta
@@ -147,19 +147,9 @@
       }
       if (!builderId) return null;
 
-      // Try to resolve builder name — probe common Insider API shapes
-      const builderName = await evalOnPage(
-        `(function(){try{
-          var fn=Insider.campaign.getBuilder||Insider.campaign.getBuilderById;
-          if(fn){var b=fn(${builderId});if(b)return b.name||b.title||b.label||null;}
-          return null;
-        }catch(e){return null;}})()`
-      );
-
       const meta = {
         builderId: String(builderId),
         variationId: variationId ? String(variationId) : null,
-        builderName: builderName || null,
       };
       builderMetaCache.set(String(builderId), meta);
       if (variationId) varIdToBuilder.set(String(variationId), String(builderId));
@@ -174,9 +164,16 @@
   function updateGroupMeta(group) {
     if (!group || !group.metaEl) return;
     group.metaEl.textContent =
-      'BUILDER #' + group.builderId +
-      ' · ' + group.campaignCount + (group.campaignCount === 1 ? ' VARIATION' : ' VARIATIONS') +
+      group.campaignCount + (group.campaignCount === 1 ? ' CAMPAIGN' : ' CAMPAIGNS') +
       ' · ' + group.ruleCount + (group.ruleCount === 1 ? ' RULE' : ' RULES');
+  }
+
+  function updateGroupVariationId(builderId, variationId) {
+    const group = groups.get(String(builderId));
+    if (group && group.varCell && variationId && !group._variationId) {
+      group.varCell.textContent = 'variationId: ' + variationId;
+      group._variationId = variationId;
+    }
   }
 
   // ── Group hit count helper ───────────────────────────────────────
@@ -189,15 +186,13 @@
 
   // ── Group card creation ──────────────────────────────────────────
 
-  function getOrCreateGroup(builderId, builderName) {
+  function getOrCreateGroup(builderId, variationId) {
     const key = String(builderId);
     if (groups.has(key)) {
       const existing = groups.get(key);
-      // Update name if we now have one and were using the fallback
-      if (builderName && existing.usingFallbackName) {
-        existing.nameCell.textContent = builderName;
-        existing.usingFallbackName = false;
-        updateGroupMeta(existing);
+      if (variationId && !existing._variationId) {
+        existing.varCell.textContent = 'variationId: ' + variationId;
+        existing._variationId = variationId;
       }
       return existing;
     }
@@ -220,7 +215,11 @@
 
     const nameCell = document.createElement('span');
     nameCell.className = 'group-name';
-    nameCell.textContent = builderName || 'Builder ' + key;
+    nameCell.textContent = 'BuilderID: ' + key;
+
+    const varCell = document.createElement('span');
+    varCell.className = 'group-variation-id';
+    varCell.textContent = variationId ? 'variationId: ' + variationId : '—';
 
     const breakBadgeEl = document.createElement('span');
     breakBadgeEl.className = 'break-badge hidden';
@@ -237,6 +236,7 @@
 
     headerEl.appendChild(caretWrap);
     headerEl.appendChild(nameCell);
+    headerEl.appendChild(varCell);
     headerEl.appendChild(breakBadgeEl);
     headerEl.appendChild(hitCountCell);
     headerEl.appendChild(bulkBreakBtn);
@@ -244,7 +244,7 @@
     // .group-meta — subtitle line
     const metaEl = document.createElement('div');
     metaEl.className = 'group-meta';
-    metaEl.textContent = 'BUILDER #' + key + ' · 0 VARIATIONS · 0 RULES';
+    metaEl.textContent = '0 CAMPAIGNS · 0 RULES';
 
     groupHeaderEl.appendChild(headerEl);
     groupHeaderEl.appendChild(metaEl);
@@ -262,10 +262,10 @@
     rowsEl.appendChild(groupEl);
 
     const group = {
-      groupEl, headerEl: groupHeaderEl, bodyEl, nameCell, metaEl,
+      groupEl, headerEl: groupHeaderEl, bodyEl, nameCell, varCell, metaEl,
       breakBadgeEl, hitCountCell, instanceEls: [], expanded: false,
       builderId: key, campaignCount: 0, ruleCount: 0,
-      usingFallbackName: !builderName,
+      _variationId: variationId ? String(variationId) : null,
     };
 
     groupHeaderEl.addEventListener('click', (e) => {
@@ -558,23 +558,6 @@
         badge.textContent = 'Tag';
       }
 
-      // ID display (column 3)
-      const idEl = document.createElement('span');
-      idEl.className = 'instance-id';
-      const idLabel = document.createElement('span');
-      idLabel.className = 'id-label';
-      idLabel.textContent = 'variation';
-      const idValue = document.createElement('span');
-      idValue.className = 'id-value';
-      // For Campaign tags, id is the variationId; for Custom-Rule, variationId unknown until resolved
-      if (parsed) {
-        idValue.textContent = parsed.type === 'Campaign' ? parsed.id : '—';
-      } else {
-        idValue.textContent = tag;
-      }
-      idEl.appendChild(idLabel);
-      idEl.appendChild(idValue);
-
       const sparklineEl = document.createElement('div');
       sparklineEl.className = 'sparkline';
       const sparkBars = Array.from({ length: 8 }, () => {
@@ -611,7 +594,6 @@
 
       row.appendChild(dotEl);
       row.appendChild(badge);
-      row.appendChild(idEl);
       row.appendChild(sparklineEl);
       row.appendChild(countCell);
       row.appendChild(toggleInput);
@@ -623,7 +605,6 @@
       row._toggleInput = toggleInput;
       row._sparkBars   = sparkBars;
       row._badge       = badge;
-      row._idValue     = idValue;
       row._group       = group;
 
       group.instanceEls.push(row);
@@ -646,24 +627,15 @@
     syncInstanceRow(row);
   }
 
-  // ── Row variationId update ───────────────────────────────────────
-
-  function updateRowVariationId(tag, variationId) {
-    const row = rowEls.get(tag);
-    if (row && row._idValue && variationId) {
-      row._idValue.textContent = variationId;
-    }
-  }
-
   // ── Row migration (pending → real group) ─────────────────────────
 
-  function migrateRow(tag, targetBuilderId, targetBuilderName) {
+  function migrateRow(tag, targetBuilderId, targetVariationId) {
     const row = rowEls.get(tag);
     if (!row || !pendingGroup) return;
     const srcGroup = pendingGroup;
     if (!srcGroup.instanceEls.includes(row)) return; // already migrated or not pending
 
-    const targetGroup = getOrCreateGroup(targetBuilderId, targetBuilderName);
+    const targetGroup = getOrCreateGroup(targetBuilderId, targetVariationId);
 
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -731,7 +703,7 @@
         if (alreadyResolved) {
           const builderId = varIdToBuilder.get(parsed.id);
           const meta = builderMetaCache.get(builderId);
-          const group = getOrCreateGroup(builderId, meta ? meta.builderName : null);
+          const group = getOrCreateGroup(builderId, meta ? meta.variationId : null);
           if (!rowEls.has(tag)) upsertRow(tag, group);
           else syncInstanceRow(rowEls.get(tag));
           updateGroupHitCount(group);
@@ -751,7 +723,7 @@
                 console.warn('[panel] could not resolve builderId for', tag);
                 return;
               }
-              migrateRow(tag, meta.builderId, meta.builderName);
+              migrateRow(tag, meta.builderId, meta.variationId);
             }).catch(() => { resolvingVarIds.delete(parsed.id); });
           }
         }
@@ -759,30 +731,18 @@
         // Custom-Rule: builderId known immediately from tag
         const builderId = parsed.id;
         const cachedMeta = builderMetaCache.get(builderId);
-        const group = getOrCreateGroup(builderId, cachedMeta ? cachedMeta.builderName : null);
+        const group = getOrCreateGroup(builderId, cachedMeta ? cachedMeta.variationId : null);
         if (!rowEls.has(tag)) upsertRow(tag, group);
         else syncInstanceRow(rowEls.get(tag));
         updateGroupHitCount(group);
 
-        // Resolve variationId async for display (deduped by builderId)
+        // Resolve variationId async for group header display (deduped by builderId)
         if (!builderMetaCache.has(builderId) && !resolvingBuilderIds.has(builderId)) {
           resolvingBuilderIds.add(builderId);
           resolveBuilderMeta(parsed).then(resolvedMeta => {
             resolvingBuilderIds.delete(builderId);
             if (!resolvedMeta) return;
-            // Update all rows in this builder group with the resolved variationId
-            const grp = groups.get(String(builderId));
-            if (grp && resolvedMeta.variationId) {
-              grp.instanceEls.forEach(r => {
-                if (r._idValue) r._idValue.textContent = resolvedMeta.variationId;
-              });
-            }
-            // Update group name if we got a builder name and were using fallback
-            if (grp && resolvedMeta.builderName && grp.usingFallbackName) {
-              grp.nameCell.textContent = resolvedMeta.builderName;
-              grp.usingFallbackName = false;
-              updateGroupMeta(grp);
-            }
+            updateGroupVariationId(builderId, resolvedMeta.variationId);
           }).catch(() => { resolvingBuilderIds.delete(builderId); });
         }
       }

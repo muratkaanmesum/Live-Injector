@@ -210,7 +210,7 @@
       }
       .group-row {
         display: grid;
-        grid-template-columns: 14px 1fr auto auto auto;
+        grid-template-columns: 14px 1fr auto auto auto auto;
         align-items: center;
         gap: 8px;
         padding: 7px 10px 6px;
@@ -234,6 +234,11 @@
       .group-name {
         font-family: var(--font-mono); font-weight: 500; font-size: 12px;
         color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .group-variation-id {
+        font-family: var(--font-mono); font-size: 10.5px;
+        color: var(--text-4); font-variant-numeric: tabular-nums;
+        flex-shrink: 0; white-space: nowrap;
       }
       .break-badge {
         display: inline-flex; align-items: center; gap: 3px;
@@ -290,7 +295,7 @@
       /* ── instance row ───────────────────────────────────────────────── */
       .instance {
         display: grid;
-        grid-template-columns: 8px 74px minmax(0, 1fr) 44px 36px 26px;
+        grid-template-columns: 8px 74px 44px 36px 26px;
         align-items: center; gap: 8px;
         padding: 6px 10px 6px 26px;
         border-bottom: 1px solid var(--border-soft);
@@ -333,21 +338,6 @@
         background: rgba(94,196,182,0.08);
       }
       .row-badge.type-rule::before { background: var(--accent-rule); }
-
-      /* ── variation id display ───────────────────────────────────────── */
-      .instance-id {
-        font-family: var(--font-mono); font-size: 11px;
-        font-variant-numeric: tabular-nums;
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-        color: var(--text-3);
-      }
-      .instance-id .id-label {
-        color: var(--text-4); font-size: 9.5px;
-        text-transform: uppercase; letter-spacing: 0.06em;
-        margin-right: 0.35em;
-      }
-      .instance-id .id-value { color: var(--text-2); }
-      .instance.is-breaking .instance-id .id-value { color: var(--text); }
 
       .instance-hit-count {
         font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
