@@ -356,6 +356,7 @@
       row.appendChild(toggleInput);
       group.bodyEl.appendChild(row);
 
+      row.tabIndex     = 0;
       row._tag         = tag;
       row._countCell   = countCell;
       row._toggleInput = toggleInput;
@@ -446,6 +447,60 @@
     groups.forEach(group => updateGroupBreakBadge(group));
     applyFilter();
     updateStatusBar();
+  });
+
+  // ── Keyboard shortcuts ───────────────────────────────────────────
+
+  document.addEventListener('keydown', (e) => {
+    const active  = document.activeElement;
+    const inInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+
+    // ⌘F / Ctrl+F — focus search
+    if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+      e.preventDefault();
+      searchInput.focus();
+      searchInput.select();
+      return;
+    }
+
+    // ⌘K / Ctrl+K — clear all breaks
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      clearBreaksBtn.click();
+      return;
+    }
+
+    if (inInput) return;
+
+    // Space — toggle break on focused instance row
+    if (e.key === ' ' || e.key === 'Spacebar') {
+      if (active && active.classList.contains('instance') && active._toggleInput) {
+        e.preventDefault();
+        active._toggleInput.click();
+        return;
+      }
+    }
+
+    // ↑ / ↓ — navigate visible rows within open groups
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const allRows = Array.from(rowsEl.querySelectorAll('.group.is-open .instance:not(.hidden)'));
+      if (allRows.length === 0) return;
+      const currentIdx = allRows.indexOf(active);
+      let nextIdx;
+      if (e.key === 'ArrowDown') {
+        nextIdx = currentIdx === -1 ? 0 : Math.min(currentIdx + 1, allRows.length - 1);
+      } else {
+        nextIdx = currentIdx === -1 ? allRows.length - 1 : Math.max(currentIdx - 1, 0);
+      }
+      allRows[nextIdx].focus();
+      return;
+    }
+
+    // Escape — blur focused element
+    if (e.key === 'Escape' && active && active !== document.body) {
+      active.blur();
+    }
   });
 
   // ── Event wiring ─────────────────────────────────────────────────
