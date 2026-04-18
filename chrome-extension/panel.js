@@ -22,8 +22,10 @@
   const hitLog = new Map(); // tag → number[] (timestamps of last 8 hits)
 
   // New state for builder-keyed grouping
-  const builderMetaCache = new Map(); // builderId → {builderId, variationId, builderName}
-  const varIdToBuilder   = new Map(); // variationId (string) → builderId (string)
+  const builderMetaCache    = new Map(); // builderId → {builderId, variationId, builderName}
+  const varIdToBuilder      = new Map(); // variationId (string) → builderId (string)
+  const resolvingVarIds     = new Set(); // variationId strings with active resolveBuilderMeta
+  const resolvingBuilderIds = new Set(); // builderId strings with active resolveBuilderMeta
 
   // Pending group singleton (tags awaiting Insider runtime resolution)
   let pendingGroup = null;
@@ -192,8 +194,9 @@
     if (groups.has(key)) {
       const existing = groups.get(key);
       // Update name if we now have one and were using the fallback
-      if (builderName && existing.nameCell.textContent === 'Builder ' + key) {
+      if (builderName && existing.usingFallbackName) {
         existing.nameCell.textContent = builderName;
+        existing.usingFallbackName = false;
         updateGroupMeta(existing);
       }
       return existing;
@@ -262,6 +265,7 @@
       groupEl, headerEl: groupHeaderEl, bodyEl, nameCell, metaEl,
       breakBadgeEl, hitCountCell, instanceEls: [], expanded: false,
       builderId: key, campaignCount: 0, ruleCount: 0,
+      usingFallbackName: !builderName,
     };
 
     groupHeaderEl.addEventListener('click', (e) => {
@@ -738,14 +742,18 @@
           else syncInstanceRow(rowEls.get(tag));
           updateGroupHitCount(pg);
 
-          // Resolve async — fire and forget
-          resolveBuilderMeta(parsed).then(meta => {
-            if (!meta) {
-              console.warn('[panel] could not resolve builderId for', tag);
-              return;
-            }
-            migrateRow(tag, meta.builderId, meta.builderName);
-          }).catch(() => {});
+          // Resolve async — fire and forget (deduped by variationId)
+          if (!resolvingVarIds.has(parsed.id)) {
+            resolvingVarIds.add(parsed.id);
+            resolveBuilderMeta(parsed).then(meta => {
+              resolvingVarIds.delete(parsed.id);
+              if (!meta) {
+                console.warn('[panel] could not resolve builderId for', tag);
+                return;
+              }
+              migrateRow(tag, meta.builderId, meta.builderName);
+            }).catch(() => { resolvingVarIds.delete(parsed.id); });
+          }
         }
       } else {
         // Custom-Rule: builderId known immediately from tag
@@ -756,19 +764,26 @@
         else syncInstanceRow(rowEls.get(tag));
         updateGroupHitCount(group);
 
-        // Resolve variationId async for display (only once per builderId)
-        if (!builderMetaCache.has(builderId)) {
+        // Resolve variationId async for display (deduped by builderId)
+        if (!builderMetaCache.has(builderId) && !resolvingBuilderIds.has(builderId)) {
+          resolvingBuilderIds.add(builderId);
           resolveBuilderMeta(parsed).then(resolvedMeta => {
-            if (resolvedMeta) {
-              updateRowVariationId(tag, resolvedMeta.variationId);
-              // Update group name if we got a builder name
-              const grp = groups.get(builderId);
-              if (grp && resolvedMeta.builderName && grp.nameCell.textContent === 'Builder ' + builderId) {
-                grp.nameCell.textContent = resolvedMeta.builderName;
-              }
-              if (grp) updateGroupMeta(grp);
+            resolvingBuilderIds.delete(builderId);
+            if (!resolvedMeta) return;
+            // Update all rows in this builder group with the resolved variationId
+            const grp = groups.get(String(builderId));
+            if (grp && resolvedMeta.variationId) {
+              grp.instanceEls.forEach(r => {
+                if (r._idValue) r._idValue.textContent = resolvedMeta.variationId;
+              });
             }
-          }).catch(() => {});
+            // Update group name if we got a builder name and were using fallback
+            if (grp && resolvedMeta.builderName && grp.usingFallbackName) {
+              grp.nameCell.textContent = resolvedMeta.builderName;
+              grp.usingFallbackName = false;
+              updateGroupMeta(grp);
+            }
+          }).catch(() => { resolvingBuilderIds.delete(builderId); });
         }
       }
     } else {
@@ -798,6 +813,8 @@
     groups.clear();
     builderMetaCache.clear();
     varIdToBuilder.clear();
+    resolvingVarIds.clear();
+    resolvingBuilderIds.clear();
     hitLog.clear();
     if (pendingGroup) {
       pendingGroup.groupEl.remove();
