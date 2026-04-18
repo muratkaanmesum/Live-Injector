@@ -1,61 +1,298 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <style>
+      /* ── font ───────────────────────────────────────────────────────── */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        src: url('fonts/JetBrainsMono[wght].woff2') format('woff2-variations');
+        font-weight: 100 800;
+        font-display: swap;
+      }
+
+      /* ── design tokens ──────────────────────────────────────────────── */
+      :root {
+        --font-ui:   ui-sans-serif, -apple-system, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 10px;
+        --ease: cubic-bezier(0.2, 0, 0, 1);
+        --dur: 160ms;
+
+        --accent:      oklch(0.64 0.21 26);
+        --accent-soft: oklch(0.64 0.21 26 / 0.14);
+        --accent-halo: oklch(0.64 0.21 26 / 0.28);
+
+        /* dark theme by default */
+        --bg:          oklch(0.17 0.005 60);
+        --bg-sunk:     oklch(0.14 0.005 60);
+        --surface:     oklch(0.21 0.005 60);
+        --surface-hi:  oklch(0.24 0.005 60);
+        --border:      oklch(0.29 0.005 60);
+        --border-soft: oklch(0.23 0.005 60);
+        --text:        oklch(0.96 0 0);
+        --text-2:      oklch(0.78 0.004 60);
+        --text-3:      oklch(0.56 0.006 60);
+        --text-4:      oklch(0.40 0.006 60);
+      }
+
+      /* light — system pref, overridden by [data-theme] below */
+      @media (prefers-color-scheme: light) {
+        html:not([data-theme="dark"]) {
+          color-scheme: light;
+          --bg:          oklch(0.985 0.002 85);
+          --bg-sunk:     oklch(0.96  0.003 85);
+          --surface:     oklch(1     0     0);
+          --surface-hi:  oklch(0.97  0.003 85);
+          --border:      oklch(0.88  0.004 85);
+          --border-soft: oklch(0.93  0.003 85);
+          --text:        oklch(0.22  0.01  60);
+          --text-2:      oklch(0.38  0.008 60);
+          --text-3:      oklch(0.55  0.006 60);
+          --text-4:      oklch(0.72  0.004 60);
+        }
+      }
+
+      /* manual overrides */
+      [data-theme="light"] {
+        color-scheme: light;
+        --bg:          oklch(0.985 0.002 85);
+        --bg-sunk:     oklch(0.96  0.003 85);
+        --surface:     oklch(1     0     0);
+        --surface-hi:  oklch(0.97  0.003 85);
+        --border:      oklch(0.88  0.004 85);
+        --border-soft: oklch(0.93  0.003 85);
+        --text:        oklch(0.22  0.01  60);
+        --text-2:      oklch(0.38  0.008 60);
+        --text-3:      oklch(0.55  0.006 60);
+        --text-4:      oklch(0.72  0.004 60);
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+      }
+
+      /* ── reset ──────────────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 12px;
-        margin: 0;
-        padding: 12px;
-        color: #222;
-        background: #fff;
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        line-height: 1.45;
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
       }
-      header {
+      button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+
+      /* ── app shell ──────────────────────────────────────────────────── */
+      .app {
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      /* ── titlebar ───────────────────────────────────────────────────── */
+      .titlebar {
         display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        margin-bottom: 10px;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px 8px;
+        border-bottom: 1px solid var(--border-soft);
+        flex-shrink: 0;
       }
-      h1 { font-size: 13px; margin: 0; font-weight: 600; }
-      #origin { font-size: 11px; color: #888; font-family: monospace; }
+      .brand-mark {
+        width: 14px; height: 14px;
+        flex-shrink: 0;
+        border-radius: 4px;
+        background: linear-gradient(135deg, var(--accent) 0%, oklch(0.52 0.2 35) 100%);
+        box-shadow: 0 0 8px var(--accent-halo);
+      }
+      .brand-title { font-weight: 600; font-size: 13px; letter-spacing: -0.01em; }
+      .brand-sep   { color: var(--text-4); margin: 0 1px; font-size: 11px; }
+      .brand-sub   {
+        font-size: 10.5px; color: var(--text-3);
+        text-transform: uppercase; letter-spacing: 0.07em; font-weight: 500;
+      }
+      .titlebar-spacer { flex: 1; }
+
+      .origin-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 9px 3px 7px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-family: var(--font-mono);
+        font-size: 11px; color: var(--text-2);
+        max-width: 220px; overflow: hidden; white-space: nowrap;
+        transition: border-color var(--dur) var(--ease);
+      }
+      .origin-dot {
+        width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+        background: oklch(0.68 0.17 148);
+        box-shadow: 0 0 5px oklch(0.68 0.17 148 / 0.6);
+        transition: background var(--dur), box-shadow var(--dur);
+      }
+      .origin-chip.is-unknown .origin-dot {
+        background: var(--text-4);
+        box-shadow: none;
+      }
+      .origin-proto { color: var(--text-3); }
+
+      .theme-toggle {
+        width: 26px; height: 26px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        color: var(--text-3);
+        display: inline-grid; place-items: center; flex-shrink: 0;
+        transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+      }
+      .theme-toggle:hover { background: var(--surface); color: var(--text); }
+
+      /* ── toolbar slot (filled in Phase 2) ──────────────────────────── */
+      #toolbar { display: none; }
+
+      /* ── scroll area ────────────────────────────────────────────────── */
+      .scroll {
+        overflow-y: auto;
+        padding: 10px 10px 24px;
+      }
+      .scroll::-webkit-scrollbar { width: 6px; }
+      .scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+      /* ── empty state ────────────────────────────────────────────────── */
       #empty {
-        color: #888;
-        padding: 20px 0;
+        color: var(--text-3);
+        padding: 28px 0;
         text-align: center;
+        font-size: 12px;
       }
+
+      /* ── table (current structure, themed) ──────────────────────────── */
       table {
         width: 100%;
         border-collapse: collapse;
-        font-family: monospace;
+        font-family: var(--font-mono);
+        font-size: 12px;
       }
       th, td {
         text-align: left;
-        padding: 4px 8px;
-        border-bottom: 1px solid #eee;
+        padding: 5px 8px;
+        border-bottom: 1px solid var(--border-soft);
       }
       th {
         font-weight: 600;
-        color: #555;
-        background: #fafafa;
+        color: var(--text-3);
+        background: var(--bg-sunk);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
       }
-      td.count { text-align: right; width: 60px; color: #555; }
-      td.toggle { width: 60px; text-align: center; }
+      td.count {
+        text-align: right;
+        width: 60px;
+        color: var(--text-2);
+        font-variant-numeric: tabular-nums;
+      }
+      td.toggle { width: 44px; text-align: center; }
+      tr:not(.group-header):hover td { background: var(--surface-hi); }
       .hidden { display: none; }
+
+      /* ── breakpoint checkbox ────────────────────────────────────────── */
+      input[type="checkbox"] {
+        -webkit-appearance: none; appearance: none;
+        width: 13px; height: 13px;
+        border-radius: 50%;
+        border: 1.5px solid var(--text-4);
+        cursor: pointer;
+        position: relative; vertical-align: middle;
+        transition: border-color var(--dur) var(--ease),
+                    background    var(--dur) var(--ease),
+                    box-shadow    var(--dur) var(--ease);
+        flex-shrink: 0;
+      }
+      input[type="checkbox"]:hover {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      input[type="checkbox"]:checked {
+        background: var(--accent);
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft), 0 0 7px var(--accent-halo);
+      }
+      input[type="checkbox"]:checked::after {
+        content: '';
+        position: absolute; inset: 0; margin: auto;
+        width: 4px; height: 4px;
+        border-radius: 50%;
+        background: oklch(1 0 0 / 0.75);
+      }
+      input[type="checkbox"]:disabled { opacity: 0.35; cursor: not-allowed; }
+
+      /* ── group rows ─────────────────────────────────────────────────── */
+      .group-header { cursor: pointer; }
+      .group-header td {
+        color: var(--text-2); font-weight: 600;
+        background: var(--surface);
+      }
+      .group-header td.count { color: var(--text-3); font-weight: 400; }
+      .group-header:hover td { background: var(--surface-hi); }
+      .instance-tag { padding-left: 22px !important; color: var(--text-2); }
+
+      /* ── statusbar slot (filled in Phase 5) ────────────────────────── */
+      #statusbar { display: none; }
     </style>
   </head>
   <body>
-    <header>
-      <h1>Live Injector — Classified Tags</h1>
-      <span id="origin">—</span>
-    </header>
-    <div id="empty">No classified tags yet. Reload the page to capture.</div>
-    <table id="tags" class="hidden">
-      <thead>
-        <tr><th>Tag</th><th class="count">Count</th><th class="toggle">Break</th></tr>
-      </thead>
-      <tbody id="rows"></tbody>
-    </table>
+    <div class="app">
+      <div class="titlebar">
+        <span class="brand-mark"></span>
+        <span class="brand-title">Live Injector</span>
+        <span class="brand-sep">/</span>
+        <span class="brand-sub">Tags</span>
+        <div class="titlebar-spacer"></div>
+        <span class="origin-chip is-unknown" id="origin-chip">
+          <span class="origin-dot"></span>
+          <span class="origin-proto" id="origin-proto"></span><span id="origin">—</span>
+        </span>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div id="toolbar"></div>
+
+      <div class="scroll">
+        <div id="empty">No classified tags yet. Reload the page to capture.</div>
+        <table id="tags" class="hidden">
+          <thead>
+            <tr><th>Tag</th><th class="count">Hits</th><th class="toggle">⬤</th></tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <div id="statusbar"></div>
+    </div>
+
+    <script>
+      // Theme toggle — runs before panel.js to avoid FOUC
+      (function () {
+        var root = document.documentElement;
+        var stored = localStorage.getItem('li-theme');
+        if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+        document.getElementById('theme-toggle').addEventListener('click', function () {
+          var next = root.dataset.theme === 'light' ? 'dark' : 'light';
+          root.dataset.theme = next;
+          localStorage.setItem('li-theme', next);
+        });
+      })();
+    </script>
     <script src="panel.js"></script>
   </body>
 </html>
