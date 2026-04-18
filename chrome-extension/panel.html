@@ -297,8 +297,34 @@
       }
       .bp:disabled { opacity: 0.35; cursor: not-allowed; }
 
-      /* ── statusbar slot (filled in Phase 5) ────────────────────────── */
-      #statusbar { display: none; }
+      /* ── status bar ─────────────────────────────────────────────────── */
+      .statusbar {
+        display: flex; align-items: center; gap: 10px;
+        padding: 5px 12px;
+        background: var(--bg-sunk); border-top: 1px solid var(--border-soft);
+        font-size: 10.5px; font-family: var(--font-mono); color: var(--text-3);
+        flex-shrink: 0; white-space: nowrap; overflow: hidden;
+      }
+      .statusbar-live { display: inline-flex; align-items: center; gap: 6px; }
+      .statusbar-live::before {
+        content: ''; width: 5px; height: 5px; border-radius: 50%;
+        background: oklch(0.68 0.17 148);
+        animation: live-pulse 1.8s ease-in-out infinite;
+      }
+      @keyframes live-pulse {
+        0%, 100% { opacity: 0.3; }
+        50%  { opacity: 1; box-shadow: 0 0 5px oklch(0.68 0.17 148 / 0.7); }
+      }
+      .statusbar-sep { color: var(--text-4); }
+      .statusbar-spacer { flex: 1; min-width: 0; }
+      .statusbar-hints { color: var(--text-4); overflow: hidden; text-overflow: ellipsis; }
+      .statusbar-hints kbd {
+        font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+        background: var(--surface); padding: 0 4px;
+        border: 1px solid var(--border); border-radius: 3px;
+      }
+      #status-breaks { transition: color var(--dur) var(--ease); }
+      #status-breaks.is-active { color: var(--accent); }
     </style>
   </head>
   <body>
@@ -352,7 +378,21 @@
         <div id="rows"></div>
       </div>
 
-      <div id="statusbar"></div>
+      <div class="statusbar">
+        <span class="statusbar-live">Listening</span>
+        <span class="statusbar-sep">·</span>
+        <span id="status-rules">0 rules</span>
+        <span class="statusbar-sep">·</span>
+        <span id="status-hits">0 hits</span>
+        <span class="statusbar-sep">·</span>
+        <span id="status-breaks">0 breaks</span>
+        <span class="statusbar-spacer"></span>
+        <span class="statusbar-hints">
+          <kbd>⌘F</kbd> filter &nbsp;<span class="statusbar-sep">·</span>&nbsp;
+          <kbd>Space</kbd> break &nbsp;<span class="statusbar-sep">·</span>&nbsp;
+          <kbd>⌘K</kbd> clear
+        </span>
+      </div>
     </div>
 
     <script>

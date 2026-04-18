@@ -18,6 +18,22 @@
   const groups = new Map();
   let storedBreakMap = {};
   let localWriteInFlight = false;
+  let totalHits = 0;
+
+  // ── Status bar ───────────────────────────────────────────────────
+
+  const statusRulesEl  = document.getElementById('status-rules');
+  const statusHitsEl   = document.getElementById('status-hits');
+  const statusBreaksEl = document.getElementById('status-breaks');
+
+  function updateStatusBar() {
+    const ruleCount  = rowEls.size;
+    const breakCount = breakSet.size;
+    statusRulesEl.textContent  = ruleCount + (ruleCount === 1 ? ' rule' : ' rules');
+    statusHitsEl.textContent   = totalHits + (totalHits === 1 ? ' hit' : ' hits');
+    statusBreaksEl.textContent = breakCount + (breakCount === 1 ? ' break' : ' breaks');
+    statusBreaksEl.classList.toggle('is-active', breakCount > 0);
+  }
 
   // ── Filter state ─────────────────────────────────────────────────
   let filterMode  = 'all'; // 'all' | 'breaking' | 'hot'
@@ -137,6 +153,7 @@
       group.instanceEls.forEach(row => syncInstanceRow(row));
       updateGroupBreakBadge(group);
       applyFilter();
+      updateStatusBar();
     });
 
     groups.set(base, group);
@@ -202,6 +219,7 @@
       rowEls.forEach((_row, tag) => upsertRow(tag));
       groups.forEach(group => updateGroupBreakBadge(group));
       applyFilter();
+      updateStatusBar();
     });
   }
 
@@ -295,6 +313,7 @@
         updateGroupBreakBadge(group);
         writeBreakSetToStorage();
         applyFilter();
+        updateStatusBar();
       });
 
       row.appendChild(dotEl);
@@ -322,6 +341,7 @@
 
   function handleTagSeen(tag) {
     counts.set(tag, (counts.get(tag) || 0) + 1);
+    totalHits++;
     upsertRow(tag);
     const group = groups.get(parseBase(tag));
     if (group) {
@@ -329,6 +349,7 @@
       group.hitCountCell.textContent = String(group.total);
     }
     render();
+    updateStatusBar();
   }
 
   function clearTags() {
@@ -336,7 +357,9 @@
     rowEls.clear();
     groups.clear();
     rowsEl.textContent = '';
+    totalHits = 0;
     render();
+    updateStatusBar();
   }
 
   // ── Toolbar wiring ───────────────────────────────────────────────
@@ -378,6 +401,7 @@
     rowEls.forEach((_row, tag) => upsertRow(tag));
     groups.forEach(group => updateGroupBreakBadge(group));
     applyFilter();
+    updateStatusBar();
   });
 
   // ── Event wiring ─────────────────────────────────────────────────
