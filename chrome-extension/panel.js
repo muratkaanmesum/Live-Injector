@@ -13,13 +13,20 @@
   let breakSet = new Set();
   const counts = new Map();
   const rowEls = new Map();
-  // base → { groupEl, headerEl, bodyEl, nameCell, instCountCell, breakBadgeEl,
-  //           hitCountCell, instanceEls, expanded, total }
+  // builderId → { groupEl, headerEl, bodyEl, nameCell, metaEl, breakBadgeEl,
+  //               hitCountCell, instanceEls, expanded, campaignCount, ruleCount, builderId }
   const groups = new Map();
   let storedBreakMap = {};
   let localWriteInFlight = false;
   let totalHits = 0;
   const hitLog = new Map(); // tag → number[] (timestamps of last 8 hits)
+
+  // New state for builder-keyed grouping
+  const builderMetaCache = new Map(); // builderId → {builderId, variationId, builderName}
+  const varIdToBuilder   = new Map(); // variationId (string) → builderId (string)
+
+  // Pending group singleton (tags awaiting Insider runtime resolution)
+  let pendingGroup = null;
 
   // ── Sparkline helpers ────────────────────────────────────────────
 
@@ -69,6 +76,12 @@
     return m ? m[1] : tag;
   }
 
+  function parseTag(tag) {
+    const m = tag.match(/^(Campaign|Custom-Rule)-(\d+)-\d+$/);
+    if (!m) return null;
+    return { type: m[1], id: m[2] };
+  }
+
   function svgCaret() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '12'); svg.setAttribute('height', '12');
@@ -92,30 +105,119 @@
     return svg;
   }
 
+  // ── evalOnPage helper ────────────────────────────────────────────
+
+  function evalOnPage(expr) {
+    return new Promise((resolve) => {
+      if (!chrome.devtools || !chrome.devtools.inspectedWindow) { resolve(null); return; }
+      try {
+        chrome.devtools.inspectedWindow.eval(expr, (result, err) => {
+          resolve((err || result == null) ? null : result);
+        });
+      } catch (_) { resolve(null); }
+    });
+  }
+
+  // ── Builder meta resolution ──────────────────────────────────────
+
+  async function resolveBuilderMeta(parsed) {
+    if (!parsed) return null;
+    const { type, id } = parsed;
+    try {
+      let builderId, variationId;
+      if (type === 'Campaign') {
+        variationId = id;
+        if (varIdToBuilder.has(variationId)) {
+          builderId = varIdToBuilder.get(variationId);
+          return builderMetaCache.get(builderId) || null;
+        }
+        const raw = await evalOnPage(
+          `(function(){try{var r=Insider.campaign.getBuilderIdByVariationId(${variationId});return r!=null?String(r):null;}catch(e){return null;}})()`
+        );
+        builderId = raw;
+      } else {
+        builderId = id;
+        if (builderMetaCache.has(builderId)) return builderMetaCache.get(builderId);
+        const raw = await evalOnPage(
+          `(function(){try{var r=Insider.campaign.userSegment.getActiveVariationByBuilderId(${builderId});return r!=null?String(r):null;}catch(e){return null;}})()`
+        );
+        variationId = raw;
+      }
+      if (!builderId) return null;
+
+      // Try to resolve builder name — probe common Insider API shapes
+      const builderName = await evalOnPage(
+        `(function(){try{
+          var fn=Insider.campaign.getBuilder||Insider.campaign.getBuilderById;
+          if(fn){var b=fn(${builderId});if(b)return b.name||b.title||b.label||null;}
+          return null;
+        }catch(e){return null;}})()`
+      );
+
+      const meta = {
+        builderId: String(builderId),
+        variationId: variationId ? String(variationId) : null,
+        builderName: builderName || null,
+      };
+      builderMetaCache.set(String(builderId), meta);
+      if (variationId) varIdToBuilder.set(String(variationId), String(builderId));
+      return meta;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ── Group meta subtitle helper ───────────────────────────────────
+
+  function updateGroupMeta(group) {
+    if (!group || !group.metaEl) return;
+    group.metaEl.textContent =
+      'BUILDER #' + group.builderId +
+      ' · ' + group.campaignCount + (group.campaignCount === 1 ? ' VARIATION' : ' VARIATIONS') +
+      ' · ' + group.ruleCount + (group.ruleCount === 1 ? ' RULE' : ' RULES');
+  }
+
+  // ── Group hit count helper ───────────────────────────────────────
+
+  function updateGroupHitCount(group) {
+    if (!group) return;
+    const total = group.instanceEls.reduce((s, r) => s + (counts.get(r._tag) || 0), 0);
+    group.hitCountCell.textContent = String(total);
+  }
+
   // ── Group card creation ──────────────────────────────────────────
 
-  function getOrCreateGroup(base) {
-    if (groups.has(base)) return groups.get(base);
+  function getOrCreateGroup(builderId, builderName) {
+    const key = String(builderId);
+    if (groups.has(key)) {
+      const existing = groups.get(key);
+      // Update name if we now have one and were using the fallback
+      if (builderName && existing.nameCell.textContent === 'Builder ' + key) {
+        existing.nameCell.textContent = builderName;
+        updateGroupMeta(existing);
+      }
+      return existing;
+    }
 
     // card wrapper
-    const groupEl   = document.createElement('div');
+    const groupEl = document.createElement('div');
     groupEl.className = 'group';
 
-    // header row
-    const headerEl  = document.createElement('div');
+    // .group-header — outer click target wrapper
+    const groupHeaderEl = document.createElement('div');
+    groupHeaderEl.className = 'group-header';
+
+    // .group-row — inner grid (caret, name, break-badge, hit-count, bulk-break — 5 cols)
+    const headerEl = document.createElement('div');
     headerEl.className = 'group-row';
 
     const caretWrap = document.createElement('span');
     caretWrap.className = 'caret';
     caretWrap.appendChild(svgCaret());
 
-    const nameCell  = document.createElement('span');
+    const nameCell = document.createElement('span');
     nameCell.className = 'group-name';
-    nameCell.textContent = base;
-
-    const instCountCell = document.createElement('span');
-    instCountCell.className = 'group-inst-count';
-    instCountCell.textContent = '0 rules';
+    nameCell.textContent = builderName || 'Builder ' + key;
 
     const breakBadgeEl = document.createElement('span');
     breakBadgeEl.className = 'break-badge hidden';
@@ -132,10 +234,17 @@
 
     headerEl.appendChild(caretWrap);
     headerEl.appendChild(nameCell);
-    headerEl.appendChild(instCountCell);
     headerEl.appendChild(breakBadgeEl);
     headerEl.appendChild(hitCountCell);
     headerEl.appendChild(bulkBreakBtn);
+
+    // .group-meta — subtitle line
+    const metaEl = document.createElement('div');
+    metaEl.className = 'group-meta';
+    metaEl.textContent = 'BUILDER #' + key + ' · 0 VARIATIONS · 0 RULES';
+
+    groupHeaderEl.appendChild(headerEl);
+    groupHeaderEl.appendChild(metaEl);
 
     // body (instances)
     const bodyEl = document.createElement('div');
@@ -145,16 +254,17 @@
     wrapEl.className = 'group-body-wrap';
     wrapEl.appendChild(bodyEl);
 
-    groupEl.appendChild(headerEl);
+    groupEl.appendChild(groupHeaderEl);
     groupEl.appendChild(wrapEl);
     rowsEl.appendChild(groupEl);
 
     const group = {
-      groupEl, headerEl, bodyEl, nameCell, instCountCell,
-      breakBadgeEl, hitCountCell, instanceEls: [], expanded: false, total: 0,
+      groupEl, headerEl: groupHeaderEl, bodyEl, nameCell, metaEl,
+      breakBadgeEl, hitCountCell, instanceEls: [], expanded: false,
+      builderId: key, campaignCount: 0, ruleCount: 0,
     };
 
-    headerEl.addEventListener('click', (e) => {
+    groupHeaderEl.addEventListener('click', (e) => {
       if (e.target.closest('.bulk-break')) return;
       group.expanded = !group.expanded;
       groupEl.classList.toggle('is-open', group.expanded);
@@ -178,8 +288,103 @@
       updateStatusBar();
     });
 
-    groups.set(base, group);
+    groups.set(key, group);
     return group;
+  }
+
+  // ── Pending group ────────────────────────────────────────────────
+
+  function getOrCreatePendingGroup() {
+    if (pendingGroup) return pendingGroup;
+
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group is-pending';
+
+    const groupHeaderEl = document.createElement('div');
+    groupHeaderEl.className = 'group-header';
+
+    const headerEl = document.createElement('div');
+    headerEl.className = 'group-row';
+
+    const caretWrap = document.createElement('span');
+    caretWrap.className = 'caret';
+    caretWrap.appendChild(svgCaret());
+
+    const nameCell = document.createElement('span');
+    nameCell.className = 'group-name';
+    nameCell.textContent = 'Awaiting Insider Runtime';
+
+    const breakBadgeEl = document.createElement('span');
+    breakBadgeEl.className = 'break-badge hidden';
+    breakBadgeEl.textContent = '0';
+
+    const hitCountCell = document.createElement('span');
+    hitCountCell.className = 'group-hit-count';
+    hitCountCell.textContent = '0';
+
+    const bulkBreakBtn = document.createElement('button');
+    bulkBreakBtn.className = 'bulk-break';
+    bulkBreakBtn.title = 'Toggle breakpoints for all rules';
+    bulkBreakBtn.appendChild(svgBulkBreak());
+
+    headerEl.appendChild(caretWrap);
+    headerEl.appendChild(nameCell);
+    headerEl.appendChild(breakBadgeEl);
+    headerEl.appendChild(hitCountCell);
+    headerEl.appendChild(bulkBreakBtn);
+
+    groupHeaderEl.appendChild(headerEl);
+
+    const bodyEl = document.createElement('div');
+    bodyEl.className = 'group-body';
+
+    const wrapEl = document.createElement('div');
+    wrapEl.className = 'group-body-wrap';
+    wrapEl.appendChild(bodyEl);
+
+    groupEl.appendChild(groupHeaderEl);
+    groupEl.appendChild(wrapEl);
+
+    // Insert as first child of rowsEl
+    rowsEl.insertBefore(groupEl, rowsEl.firstChild);
+
+    pendingGroup = {
+      groupEl, headerEl: groupHeaderEl, bodyEl, nameCell,
+      metaEl: null,
+      breakBadgeEl, hitCountCell, instanceEls: [], expanded: true,
+      builderId: null, campaignCount: 0, ruleCount: 0,
+    };
+
+    // Pending group is always open
+    groupEl.classList.add('is-open');
+
+    groupHeaderEl.addEventListener('click', (e) => {
+      if (e.target.closest('.bulk-break')) return;
+      // Pending group doesn't collapse
+    });
+
+    bulkBreakBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const anyBreaking = pendingGroup.instanceEls.some(row => breakSet.has(row._tag));
+      pendingGroup.instanceEls.forEach(row => {
+        if (anyBreaking) breakSet.delete(row._tag);
+        else             breakSet.add(row._tag);
+      });
+      writeBreakSetToStorage();
+      pendingGroup.instanceEls.forEach(row => syncInstanceRow(row));
+      updateGroupBreakBadge(pendingGroup);
+      applyFilter();
+      updateStatusBar();
+    });
+
+    return pendingGroup;
+  }
+
+  function removePendingGroupIfEmpty() {
+    if (pendingGroup && pendingGroup.instanceEls.length === 0) {
+      pendingGroup.groupEl.remove();
+      pendingGroup = null;
+    }
   }
 
   // ── Instance row helpers ─────────────────────────────────────────
@@ -193,6 +398,7 @@
   }
 
   function updateGroupBreakBadge(group) {
+    if (!group) return;
     const count = group.instanceEls.filter(row => breakSet.has(row._tag)).length;
     group.breakBadgeEl.textContent = String(count);
     group.breakBadgeEl.classList.toggle('hidden', count === 0);
@@ -240,8 +446,9 @@
       storedBreakMap = map;
       const list = (currentOrigin && map[currentOrigin]) || [];
       breakSet = new Set(list);
-      rowEls.forEach((_row, tag) => upsertRow(tag));
+      rowEls.forEach((row) => syncInstanceRow(row));
       groups.forEach(group => updateGroupBreakBadge(group));
+      if (pendingGroup) updateGroupBreakBadge(pendingGroup);
       applyFilter();
       updateStatusBar();
     });
@@ -275,7 +482,10 @@
       group.instanceEls.forEach(row => {
         const tag   = row._tag;
         const count = counts.get(tag) || 0;
-        const matchesSearch = !q || tag.toLowerCase().includes(q) || base.toLowerCase().includes(q);
+        const matchesSearch = !q
+          || tag.toLowerCase().includes(q)
+          || String(base).toLowerCase().includes(q)
+          || (group.nameCell && group.nameCell.textContent.toLowerCase().includes(q));
         const matchesMode   = filterMode === 'all'
           || (filterMode === 'breaking' && breakSet.has(tag))
           || (filterMode === 'hot'      && count >= hotThreshold);
@@ -286,6 +496,24 @@
       group.groupEl.classList.toggle('hidden', !anyInstanceVisible);
       if (anyInstanceVisible) anyGroupVisible = true;
     });
+
+    // Also handle pending group rows
+    if (pendingGroup) {
+      let anyVisible = false;
+      pendingGroup.instanceEls.forEach(row => {
+        const tag   = row._tag;
+        const count = counts.get(tag) || 0;
+        const matchesSearch = !q || tag.toLowerCase().includes(q);
+        const matchesMode = filterMode === 'all'
+          || (filterMode === 'breaking' && breakSet.has(tag))
+          || (filterMode === 'hot'      && count >= hotThreshold);
+        const visible = matchesSearch && matchesMode;
+        row.classList.toggle('hidden', !visible);
+        if (visible) anyVisible = true;
+      });
+      pendingGroup.groupEl.classList.toggle('hidden', !anyVisible);
+      if (anyVisible) anyGroupVisible = true;
+    }
 
     const hasFilterActive = filterMode !== 'all' || searchQuery !== '';
     noResultsEl.classList.toggle('hidden', !hasFilterActive || anyGroupVisible || counts.size === 0);
@@ -302,26 +530,44 @@
     }
   }
 
-  function upsertRow(tag) {
-    const base  = parseBase(tag);
-    const group = getOrCreateGroup(base);
+  function upsertRow(tag, group) {
+    const parsed = parseTag(tag);
 
     let row = rowEls.get(tag);
     if (!row) {
       row = document.createElement('div');
       row.className = 'instance';
 
-      const dotEl       = document.createElement('span');
-      const nameEl      = document.createElement('span');
-      const countCell   = document.createElement('span');
-      const toggleInput = document.createElement('input');
+      const dotEl     = document.createElement('span');
+      dotEl.className = 'instance-dot';
 
-      dotEl.className       = 'instance-dot';
-      nameEl.className      = 'instance-name';
-      nameEl.textContent    = tag;
-      countCell.className   = 'instance-hit-count';
-      toggleInput.type      = 'checkbox';
-      toggleInput.className = 'bp';
+      // Type badge (column 2)
+      const badge = document.createElement('div');
+      badge.className = 'row-badge';
+      if (parsed) {
+        badge.classList.add(parsed.type === 'Campaign' ? 'type-campaign' : 'type-rule');
+        badge.textContent = parsed.type === 'Campaign' ? 'Campaign' : 'Rule';
+      } else {
+        badge.classList.add('type-rule');
+        badge.textContent = 'Tag';
+      }
+
+      // ID display (column 3)
+      const idEl = document.createElement('span');
+      idEl.className = 'instance-id';
+      const idLabel = document.createElement('span');
+      idLabel.className = 'id-label';
+      idLabel.textContent = 'variation';
+      const idValue = document.createElement('span');
+      idValue.className = 'id-value';
+      // For Campaign tags, id is the variationId; for Custom-Rule, variationId unknown until resolved
+      if (parsed) {
+        idValue.textContent = parsed.type === 'Campaign' ? parsed.id : '—';
+      } else {
+        idValue.textContent = tag;
+      }
+      idEl.appendChild(idLabel);
+      idEl.appendChild(idValue);
 
       const sparklineEl = document.createElement('div');
       sparklineEl.className = 'sparkline';
@@ -332,25 +578,34 @@
         return bar;
       });
 
+      const countCell   = document.createElement('span');
+      countCell.className = 'instance-hit-count';
+
+      const toggleInput = document.createElement('input');
+      toggleInput.type      = 'checkbox';
+      toggleInput.className = 'bp';
+
       toggleInput.addEventListener('change', () => {
+        const currentGroup = row._group;
         if (toggleInput.checked) {
           breakSet.add(tag);
-          if (!group.expanded) {
-            group.expanded = true;
-            group.groupEl.classList.add('is-open');
+          if (currentGroup && currentGroup !== pendingGroup && !currentGroup.expanded) {
+            currentGroup.expanded = true;
+            currentGroup.groupEl.classList.add('is-open');
           }
         } else {
           breakSet.delete(tag);
         }
         syncInstanceRow(row);
-        updateGroupBreakBadge(group);
+        if (currentGroup) updateGroupBreakBadge(currentGroup);
         writeBreakSetToStorage();
         applyFilter();
         updateStatusBar();
       });
 
       row.appendChild(dotEl);
-      row.appendChild(nameEl);
+      row.appendChild(badge);
+      row.appendChild(idEl);
       row.appendChild(sparklineEl);
       row.appendChild(countCell);
       row.appendChild(toggleInput);
@@ -361,37 +616,176 @@
       row._countCell   = countCell;
       row._toggleInput = toggleInput;
       row._sparkBars   = sparkBars;
+      row._badge       = badge;
+      row._idValue     = idValue;
+      row._group       = group;
+
       group.instanceEls.push(row);
 
-      // update instance count label
-      group.instCountCell.textContent = group.instanceEls.length + ' rule' +
-        (group.instanceEls.length !== 1 ? 's' : '');
+      // Update group type counts
+      if (parsed && group !== pendingGroup) {
+        if (parsed.type === 'Campaign') group.campaignCount++;
+        else group.ruleCount++;
+        updateGroupMeta(group);
+      }
 
-      if (breakSet.has(tag) && !group.expanded) {
+      // Expand group if this tag has a breakpoint (but not for pending group)
+      if (breakSet.has(tag) && group !== pendingGroup && !group.expanded) {
         group.expanded = true;
         group.groupEl.classList.add('is-open');
       }
+
+      rowEls.set(tag, row);
     }
     syncInstanceRow(row);
   }
+
+  // ── Row variationId update ───────────────────────────────────────
+
+  function updateRowVariationId(tag, variationId) {
+    const row = rowEls.get(tag);
+    if (row && row._idValue && variationId) {
+      row._idValue.textContent = variationId;
+    }
+  }
+
+  // ── Row migration (pending → real group) ─────────────────────────
+
+  function migrateRow(tag, targetBuilderId, targetBuilderName) {
+    const row = rowEls.get(tag);
+    if (!row || !pendingGroup) return;
+    const srcGroup = pendingGroup;
+    if (!srcGroup.instanceEls.includes(row)) return; // already migrated or not pending
+
+    const targetGroup = getOrCreateGroup(targetBuilderId, targetBuilderName);
+
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function doMove() {
+      // Remove from pending
+      const idx = srcGroup.instanceEls.indexOf(row);
+      if (idx !== -1) srcGroup.instanceEls.splice(idx, 1);
+      updateGroupHitCount(srcGroup);
+
+      // Move DOM node
+      targetGroup.bodyEl.appendChild(row);
+      row._group = targetGroup;
+
+      // Update target group counts
+      const parsed = parseTag(tag);
+      if (parsed && parsed.type === 'Campaign') targetGroup.campaignCount++;
+      else if (parsed) targetGroup.ruleCount++;
+      updateGroupMeta(targetGroup);
+      targetGroup.instanceEls.push(row);
+      updateGroupHitCount(targetGroup);
+
+      // Update break-open state
+      if (breakSet.has(tag) && !targetGroup.expanded) {
+        targetGroup.expanded = true;
+        targetGroup.groupEl.classList.add('is-open');
+      }
+      updateGroupBreakBadge(targetGroup);
+
+      // Animate enter
+      if (!prefersReduced) {
+        row.style.animation = 'row-enter 180ms ease-out forwards';
+        row.addEventListener('animationend', () => { row.style.animation = ''; }, { once: true });
+        // Badge pulse
+        if (row._badge) {
+          row._badge.classList.add('just-arrived');
+          setTimeout(() => row._badge.classList.remove('just-arrived'), 300);
+        }
+      }
+
+      removePendingGroupIfEmpty();
+      applyFilter();
+      updateStatusBar();
+    }
+
+    if (prefersReduced) {
+      doMove();
+    } else {
+      row.style.animation = 'row-exit 140ms ease-out forwards';
+      setTimeout(doMove, 140);
+    }
+  }
+
+  // ── Main event handler ───────────────────────────────────────────
 
   function handleTagSeen(tag) {
     counts.set(tag, (counts.get(tag) || 0) + 1);
     totalHits++;
     recordHit(tag);
-    upsertRow(tag);
-    // Pulse the count cell
+
+    const parsed = parseTag(tag);
+
+    if (parsed) {
+      if (parsed.type === 'Campaign') {
+        const alreadyResolved = varIdToBuilder.has(parsed.id);
+        if (alreadyResolved) {
+          const builderId = varIdToBuilder.get(parsed.id);
+          const meta = builderMetaCache.get(builderId);
+          const group = getOrCreateGroup(builderId, meta ? meta.builderName : null);
+          if (!rowEls.has(tag)) upsertRow(tag, group);
+          else syncInstanceRow(rowEls.get(tag));
+          updateGroupHitCount(group);
+        } else {
+          // Put in pending immediately
+          const pg = getOrCreatePendingGroup();
+          if (!rowEls.has(tag)) upsertRow(tag, pg);
+          else syncInstanceRow(rowEls.get(tag));
+          updateGroupHitCount(pg);
+
+          // Resolve async — fire and forget
+          resolveBuilderMeta(parsed).then(meta => {
+            if (!meta) {
+              console.warn('[panel] could not resolve builderId for', tag);
+              return;
+            }
+            migrateRow(tag, meta.builderId, meta.builderName);
+          }).catch(() => {});
+        }
+      } else {
+        // Custom-Rule: builderId known immediately from tag
+        const builderId = parsed.id;
+        const cachedMeta = builderMetaCache.get(builderId);
+        const group = getOrCreateGroup(builderId, cachedMeta ? cachedMeta.builderName : null);
+        if (!rowEls.has(tag)) upsertRow(tag, group);
+        else syncInstanceRow(rowEls.get(tag));
+        updateGroupHitCount(group);
+
+        // Resolve variationId async for display (only once per builderId)
+        if (!builderMetaCache.has(builderId)) {
+          resolveBuilderMeta(parsed).then(resolvedMeta => {
+            if (resolvedMeta) {
+              updateRowVariationId(tag, resolvedMeta.variationId);
+              // Update group name if we got a builder name
+              const grp = groups.get(builderId);
+              if (grp && resolvedMeta.builderName && grp.nameCell.textContent === 'Builder ' + builderId) {
+                grp.nameCell.textContent = resolvedMeta.builderName;
+              }
+              if (grp) updateGroupMeta(grp);
+            }
+          }).catch(() => {});
+        }
+      }
+    } else {
+      // Unrecognized tag format — fallback to parseBase grouping
+      const base = parseBase(tag);
+      const group = getOrCreateGroup(base, null);
+      if (!rowEls.has(tag)) upsertRow(tag, group);
+      else syncInstanceRow(rowEls.get(tag));
+      updateGroupHitCount(group);
+    }
+
+    // Pulse count cell
     const row = rowEls.get(tag);
     if (row) {
       row._countCell.classList.remove('pulse');
       void row._countCell.offsetWidth; // force reflow to restart animation
       row._countCell.classList.add('pulse');
     }
-    const group = groups.get(parseBase(tag));
-    if (group) {
-      group.total++;
-      group.hitCountCell.textContent = String(group.total);
-    }
+
     render();
     updateStatusBar();
   }
@@ -400,7 +794,13 @@
     counts.clear();
     rowEls.clear();
     groups.clear();
+    builderMetaCache.clear();
+    varIdToBuilder.clear();
     hitLog.clear();
+    if (pendingGroup) {
+      pendingGroup.groupEl.remove();
+      pendingGroup = null;
+    }
     rowsEl.textContent = '';
     totalHits = 0;
     render();
@@ -433,6 +833,7 @@
 
   collapseAllBtn.addEventListener('click', () => {
     allExpanded = !allExpanded;
+    // Skip pendingGroup — it's always open
     groups.forEach(group => {
       group.expanded = allExpanded;
       group.groupEl.classList.toggle('is-open', allExpanded);
@@ -443,8 +844,9 @@
   clearBreaksBtn.addEventListener('click', () => {
     breakSet.clear();
     writeBreakSetToStorage();
-    rowEls.forEach((_row, tag) => upsertRow(tag));
+    rowEls.forEach((row) => syncInstanceRow(row));
     groups.forEach(group => updateGroupBreakBadge(group));
+    if (pendingGroup) updateGroupBreakBadge(pendingGroup);
     applyFilter();
     updateStatusBar();
   });

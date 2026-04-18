@@ -26,6 +26,9 @@
         --accent-soft: oklch(0.64 0.21 26 / 0.14);
         --accent-halo: oklch(0.64 0.21 26 / 0.28);
 
+        --accent-campaign: #e8a24a;
+        --accent-rule:     #5ec4b6;
+
         /* dark theme by default */
         --bg:          oklch(0.17 0.005 60);
         --bg-sunk:     oklch(0.14 0.005 60);
@@ -37,6 +40,10 @@
         --text-2:      oklch(0.78 0.004 60);
         --text-3:      oklch(0.56 0.006 60);
         --text-4:      oklch(0.40 0.006 60);
+
+        --hairline:        rgba(255,255,255,0.08);
+        --hairline-strong: rgba(255,255,255,0.14);
+        --pending-border:  rgba(232,162,74,0.35);
       }
 
       @media (prefers-color-scheme: light) {
@@ -52,6 +59,9 @@
           --text-2:      oklch(0.38  0.008 60);
           --text-3:      oklch(0.55  0.006 60);
           --text-4:      oklch(0.72  0.004 60);
+          --hairline:        rgba(0,0,0,0.07);
+          --hairline-strong: rgba(0,0,0,0.12);
+          --pending-border:  rgba(180,110,20,0.35);
         }
       }
       [data-theme="light"] {
@@ -66,6 +76,9 @@
         --text-2:      oklch(0.38  0.008 60);
         --text-3:      oklch(0.55  0.006 60);
         --text-4:      oklch(0.72  0.004 60);
+        --hairline:        rgba(0,0,0,0.07);
+        --hairline-strong: rgba(0,0,0,0.12);
+        --pending-border:  rgba(180,110,20,0.35);
       }
       [data-theme="dark"] { color-scheme: dark; }
 
@@ -190,17 +203,29 @@
         border-color: oklch(0.64 0.21 26 / 0.5);
         box-shadow: inset 3px 0 0 var(--accent);
       }
+
+      /* ── group header — outer click wrapper ─────────────────────────── */
+      .group-header {
+        cursor: pointer; user-select: none;
+      }
       .group-row {
         display: grid;
-        grid-template-columns: 14px 1fr auto auto auto auto;
+        grid-template-columns: 14px 1fr auto auto auto;
         align-items: center;
         gap: 8px;
-        padding: 7px 10px;
-        cursor: pointer;
-        user-select: none;
+        padding: 7px 10px 6px;
         transition: background var(--dur) var(--ease);
       }
-      .group-row:hover { background: var(--surface-hi); }
+      .group-header:hover .group-row { background: var(--surface-hi); }
+      .group-meta {
+        padding: 2px 10px 6px 34px;
+        border-top: 1px solid var(--hairline);
+        font-family: var(--font-mono); font-size: 9.5px;
+        font-weight: 500; letter-spacing: 0.1em;
+        text-transform: uppercase; color: var(--text-4);
+        font-variant-numeric: tabular-nums;
+      }
+
       .caret {
         color: var(--text-4); display: flex; align-items: center; flex-shrink: 0;
         transition: transform var(--dur) var(--ease), color var(--dur) var(--ease);
@@ -209,11 +234,6 @@
       .group-name {
         font-family: var(--font-mono); font-weight: 500; font-size: 12px;
         color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      }
-      .group-inst-count {
-        font-family: var(--font-mono); font-size: 10.5px; color: var(--text-3);
-        padding: 1px 6px; background: var(--bg-sunk); border-radius: 999px;
-        font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap;
       }
       .break-badge {
         display: inline-flex; align-items: center; gap: 3px;
@@ -236,8 +256,27 @@
         border: 1px dashed transparent;
         transition: all var(--dur) var(--ease);
       }
-      .group-row:hover .bulk-break { border-color: var(--border); color: var(--text-3); }
+      .group-header:hover .bulk-break { border-color: var(--border); color: var(--text-3); }
       .bulk-break:hover { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: var(--accent) !important; border-style: solid !important; }
+
+      /* ── pending group ──────────────────────────────────────────────── */
+      .group.is-pending {
+        border: 1px dashed var(--pending-border);
+        background: transparent;
+        box-shadow: none;
+      }
+      .group.is-pending .group-header:hover .group-row { background: transparent; }
+      .group.is-pending .group-name {
+        font-style: italic; letter-spacing: 0.04em; color: var(--text-3);
+        animation: pending-breathe 2.4s ease-in-out infinite;
+      }
+      @keyframes pending-breathe {
+        0%, 100% { opacity: 0.55; }
+        50%       { opacity: 0.9;  }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .group.is-pending .group-name { animation: none; opacity: 0.7; }
+      }
 
       /* ── group body with animated collapse ─────────────────────────── */
       .group-body-wrap {
@@ -246,12 +285,12 @@
         transition: grid-template-rows 220ms var(--ease);
       }
       .group.is-open .group-body-wrap { grid-template-rows: 1fr; }
-      .group-body { min-height: 0; overflow: hidden; border-top: 1px solid var(--border-soft); }
+      .group-body { min-height: 0; overflow: hidden; border-top: 1px solid var(--hairline-strong); }
 
       /* ── instance row ───────────────────────────────────────────────── */
       .instance {
         display: grid;
-        grid-template-columns: 8px minmax(0, 1fr) 44px 36px 26px;
+        grid-template-columns: 8px 74px minmax(0, 1fr) 44px 36px 26px;
         align-items: center; gap: 8px;
         padding: 6px 10px 6px 26px;
         border-bottom: 1px solid var(--border-soft);
@@ -266,11 +305,50 @@
         transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
       }
       .instance.is-breaking .instance-dot { background: var(--accent); box-shadow: 0 0 5px var(--accent-halo); }
-      .instance-name {
-        font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2);
-        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+
+      /* ── type badge ─────────────────────────────────────────────────── */
+      .row-badge {
+        position: relative;
+        display: inline-flex; align-items: center;
+        height: 18px; padding: 0 7px 0 11px;
+        border-radius: 2px;
+        font-family: var(--font-mono);
+        font-size: 9px; font-weight: 600;
+        letter-spacing: 0.12em; text-transform: uppercase;
+        overflow: hidden; white-space: nowrap;
+        width: 74px; flex-shrink: 0; box-sizing: border-box;
       }
-      .instance.is-breaking .instance-name { color: var(--text); }
+      .row-badge::before {
+        content: '';
+        position: absolute; left: 0; top: 0; bottom: 0;
+        width: 3px;
+      }
+      .row-badge.type-campaign {
+        color: var(--accent-campaign);
+        background: rgba(232,162,74,0.08);
+      }
+      .row-badge.type-campaign::before { background: var(--accent-campaign); }
+      .row-badge.type-rule {
+        color: var(--accent-rule);
+        background: rgba(94,196,182,0.08);
+      }
+      .row-badge.type-rule::before { background: var(--accent-rule); }
+
+      /* ── variation id display ───────────────────────────────────────── */
+      .instance-id {
+        font-family: var(--font-mono); font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        color: var(--text-3);
+      }
+      .instance-id .id-label {
+        color: var(--text-4); font-size: 9.5px;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        margin-right: 0.35em;
+      }
+      .instance-id .id-value { color: var(--text-2); }
+      .instance.is-breaking .instance-id .id-value { color: var(--text); }
+
       .instance-hit-count {
         font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
         font-variant-numeric: tabular-nums; text-align: right;
@@ -316,6 +394,26 @@
         width: 4px; height: 4px; border-radius: 50%; background: oklch(1 0 0 / 0.75);
       }
       .bp:disabled { opacity: 0.35; cursor: not-allowed; }
+
+      /* ── row migration animations ───────────────────────────────────── */
+      @keyframes row-exit {
+        to { opacity: 0; transform: translateX(-4px); }
+      }
+      @keyframes row-enter {
+        from { opacity: 0; transform: translateX(4px); }
+      }
+
+      /* ── badge pulse (one-shot after migration) ─────────────────────── */
+      @keyframes badge-pulse {
+        0%   { outline: 2px solid var(--pending-border); outline-offset: 1px; }
+        100% { outline: 2px solid transparent;           outline-offset: 3px; }
+      }
+      .row-badge.just-arrived {
+        animation: badge-pulse 280ms ease-out forwards;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .row-badge.just-arrived { animation: none; }
+      }
 
       /* ── status bar ─────────────────────────────────────────────────── */
       .statusbar {
