@@ -17,6 +17,11 @@
   let storedBreakMap = {};
   let localWriteInFlight = false;
 
+  // ── Filter state ─────────────────────────────────────────────────
+  let filterMode  = 'all'; // 'all' | 'breaking' | 'hot'
+  let searchQuery = '';
+  let allExpanded = false;
+
   function parseBase(tag) {
     const m = tag.match(/^(.*)-\d+$/);
     return m ? m[1] : tag;
@@ -94,6 +99,7 @@
       const list = (currentOrigin && map[currentOrigin]) || [];
       breakSet = new Set(list);
       rowEls.forEach((_row, tag) => upsertRow(tag));
+      applyFilter();
     });
   }
 
@@ -110,6 +116,40 @@
 
   // ── Rendering ────────────────────────────────────────────────────
 
+  function applyFilter() {
+    const noResultsEl = document.getElementById('no-results');
+    const q = searchQuery.toLowerCase();
+
+    let hotThreshold = 0;
+    if (filterMode === 'hot' && counts.size > 0) {
+      const vals = Array.from(counts.values()).sort((a, b) => b - a);
+      hotThreshold = vals[Math.max(0, Math.ceil(vals.length * 0.25) - 1)] || 1;
+    }
+
+    let anyGroupVisible = false;
+    groups.forEach((group, base) => {
+      let anyInstanceVisible = false;
+      group.instanceEls.forEach(row => {
+        const tag   = row._tag;
+        const count = counts.get(tag) || 0;
+        const matchesSearch = !q || tag.toLowerCase().includes(q) || base.toLowerCase().includes(q);
+        const matchesMode   = filterMode === 'all'
+          || (filterMode === 'breaking' && breakSet.has(tag))
+          || (filterMode === 'hot'      && count >= hotThreshold);
+        const visible = matchesSearch && matchesMode;
+        row.classList.toggle('hidden', !visible);
+        if (visible) anyInstanceVisible = true;
+      });
+      group.headerEl.classList.toggle('hidden', !anyInstanceVisible);
+      if (anyInstanceVisible) anyGroupVisible = true;
+    });
+
+    const hasFilterActive = filterMode !== 'all' || searchQuery !== '';
+    if (noResultsEl) {
+      noResultsEl.classList.toggle('hidden', !hasFilterActive || anyGroupVisible || counts.size === 0);
+    }
+  }
+
   function render() {
     if (counts.size === 0) {
       emptyEl.classList.remove('hidden');
@@ -117,6 +157,7 @@
     } else {
       emptyEl.classList.add('hidden');
       tableEl.classList.remove('hidden');
+      applyFilter();
     }
   }
 
@@ -162,6 +203,7 @@
 
       row._countCell   = countCell;
       row._toggleInput = toggleInput;
+      row._tag         = tag;
       group.instanceEls.push(row);
       rowEls.set(tag, row);
 
@@ -219,6 +261,47 @@
       resolveOrigin();
     });
   }
+
+  // ── Toolbar wiring ───────────────────────────────────────────────
+
+  const searchInput    = document.getElementById('search-input');
+  const filterSeg      = document.getElementById('filter-seg');
+  const collapseAllBtn = document.getElementById('collapse-all-btn');
+  const clearBreaksBtn = document.getElementById('clear-breaks-btn');
+
+  let searchDebounce = null;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(() => {
+      searchQuery = searchInput.value.trim();
+      applyFilter();
+    }, 80);
+  });
+
+  filterSeg.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-filter]');
+    if (!btn) return;
+    filterMode = btn.dataset.filter;
+    filterSeg.querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b === btn));
+    applyFilter();
+  });
+
+  collapseAllBtn.addEventListener('click', () => {
+    allExpanded = !allExpanded;
+    groups.forEach((group, base) => {
+      group.expanded = allExpanded;
+      group.nameCell.textContent = (allExpanded ? '▼ ' : '▶ ') + base;
+      group.instanceEls.forEach(el => { el.style.display = allExpanded ? '' : 'none'; });
+    });
+    applyFilter();
+  });
+
+  clearBreaksBtn.addEventListener('click', () => {
+    breakSet.clear();
+    writeBreakSetToStorage();
+    rowEls.forEach((_row, tag) => upsertRow(tag));
+    applyFilter();
+  });
 
   // ── Init ─────────────────────────────────────────────────────────
 

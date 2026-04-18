@@ -56,7 +56,6 @@
         }
       }
 
-      /* manual overrides */
       [data-theme="light"] {
         color-scheme: light;
         --bg:          oklch(0.985 0.002 85);
@@ -70,9 +69,7 @@
         --text-3:      oklch(0.55  0.006 60);
         --text-4:      oklch(0.72  0.004 60);
       }
-      [data-theme="dark"] {
-        color-scheme: dark;
-      }
+      [data-theme="dark"] { color-scheme: dark; }
 
       /* ── reset ──────────────────────────────────────────────────────── */
       *, *::before, *::after { box-sizing: border-box; }
@@ -136,10 +133,7 @@
         box-shadow: 0 0 5px oklch(0.68 0.17 148 / 0.6);
         transition: background var(--dur), box-shadow var(--dur);
       }
-      .origin-chip.is-unknown .origin-dot {
-        background: var(--text-4);
-        box-shadow: none;
-      }
+      .origin-chip.is-unknown .origin-dot { background: var(--text-4); box-shadow: none; }
       .origin-proto { color: var(--text-3); }
 
       .theme-toggle {
@@ -152,8 +146,78 @@
       }
       .theme-toggle:hover { background: var(--surface); color: var(--text); }
 
-      /* ── toolbar slot (filled in Phase 2) ──────────────────────────── */
-      #toolbar { display: none; }
+      /* ── toolbar ────────────────────────────────────────────────────── */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: var(--bg-sunk);
+        border-bottom: 1px solid var(--border-soft);
+        flex-shrink: 0;
+      }
+      .search-wrap {
+        flex: 1;
+        position: relative;
+        min-width: 0;
+      }
+      .search-wrap svg {
+        position: absolute; top: 50%; left: 7px;
+        transform: translateY(-50%);
+        color: var(--text-4); pointer-events: none;
+      }
+      .search-wrap input {
+        width: 100%; height: 27px;
+        padding: 0 8px 0 25px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        font-family: var(--font-mono);
+        font-size: 11.5px; color: var(--text);
+        transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+        outline: none;
+      }
+      .search-wrap input::placeholder { color: var(--text-4); }
+      .search-wrap input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
+      }
+      .segmented {
+        display: inline-flex;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 2px;
+        flex-shrink: 0;
+      }
+      .segmented button {
+        padding: 2px 9px;
+        font-size: 11px; color: var(--text-3);
+        border-radius: 4px;
+        transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+        white-space: nowrap;
+      }
+      .segmented button.is-active {
+        background: var(--bg);
+        color: var(--text);
+        box-shadow: 0 1px 2px oklch(0 0 0 / 0.3);
+      }
+      .segmented button:hover:not(.is-active) { color: var(--text-2); }
+      .toolbar-btn {
+        width: 27px; height: 27px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        color: var(--text-3);
+        display: inline-grid; place-items: center; flex-shrink: 0;
+        transition: background var(--dur) var(--ease), color var(--dur) var(--ease),
+                    border-color var(--dur) var(--ease);
+      }
+      .toolbar-btn:hover { background: var(--surface); color: var(--text); }
+      .toolbar-btn.is-danger:hover {
+        background: var(--accent-soft);
+        color: var(--accent);
+        border-color: var(--accent);
+      }
 
       /* ── scroll area ────────────────────────────────────────────────── */
       .scroll {
@@ -163,15 +227,16 @@
       .scroll::-webkit-scrollbar { width: 6px; }
       .scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-      /* ── empty state ────────────────────────────────────────────────── */
-      #empty {
+      /* ── empty / no-results states ──────────────────────────────────── */
+      #empty, #no-results {
         color: var(--text-3);
         padding: 28px 0;
         text-align: center;
         font-size: 12px;
       }
+      .hidden { display: none !important; }
 
-      /* ── table (current structure, themed) ──────────────────────────── */
+      /* ── table (current structure, fully themed) ────────────────────── */
       table {
         width: 100%;
         border-collapse: collapse;
@@ -199,7 +264,6 @@
       }
       td.toggle { width: 44px; text-align: center; }
       tr:not(.group-header):hover td { background: var(--surface-hi); }
-      .hidden { display: none; }
 
       /* ── breakpoint checkbox ────────────────────────────────────────── */
       input[type="checkbox"] {
@@ -214,30 +278,21 @@
                     box-shadow    var(--dur) var(--ease);
         flex-shrink: 0;
       }
-      input[type="checkbox"]:hover {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 3px var(--accent-soft);
-      }
+      input[type="checkbox"]:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
       input[type="checkbox"]:checked {
-        background: var(--accent);
-        border-color: var(--accent);
+        background: var(--accent); border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-soft), 0 0 7px var(--accent-halo);
       }
       input[type="checkbox"]:checked::after {
-        content: '';
-        position: absolute; inset: 0; margin: auto;
-        width: 4px; height: 4px;
-        border-radius: 50%;
+        content: ''; position: absolute; inset: 0; margin: auto;
+        width: 4px; height: 4px; border-radius: 50%;
         background: oklch(1 0 0 / 0.75);
       }
       input[type="checkbox"]:disabled { opacity: 0.35; cursor: not-allowed; }
 
       /* ── group rows ─────────────────────────────────────────────────── */
       .group-header { cursor: pointer; }
-      .group-header td {
-        color: var(--text-2); font-weight: 600;
-        background: var(--surface);
-      }
+      .group-header td { color: var(--text-2); font-weight: 600; background: var(--surface); }
       .group-header td.count { color: var(--text-3); font-weight: 400; }
       .group-header:hover td { background: var(--surface-hi); }
       .instance-tag { padding-left: 22px !important; color: var(--text-2); }
@@ -265,10 +320,35 @@
         </button>
       </div>
 
-      <div id="toolbar"></div>
+      <div class="toolbar">
+        <div class="search-wrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="search" id="search-input" placeholder="Filter by tag or campaign…" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="segmented" id="filter-seg">
+          <button data-filter="all" class="is-active">All</button>
+          <button data-filter="breaking">Breaking</button>
+          <button data-filter="hot">Hot</button>
+        </div>
+        <button class="toolbar-btn" id="collapse-all-btn" title="Collapse / expand all">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="17 8 12 3 7 8"/><polyline points="17 16 12 21 7 16"/>
+          </svg>
+        </button>
+        <button class="toolbar-btn is-danger" id="clear-breaks-btn" title="Clear all breakpoints">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/>
+          </svg>
+        </button>
+      </div>
 
       <div class="scroll">
         <div id="empty">No classified tags yet. Reload the page to capture.</div>
+        <div id="no-results" class="hidden">No tags match the current filter.</div>
         <table id="tags" class="hidden">
           <thead>
             <tr><th>Tag</th><th class="count">Hits</th><th class="toggle">⬤</th></tr>
