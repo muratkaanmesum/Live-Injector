@@ -646,7 +646,6 @@
       row.appendChild(dotEl);
       row.appendChild(badge);
       row.appendChild(sparklineEl);
-      row.appendChild(countCell);
       row.appendChild(toggleInput);
       group.bodyEl.appendChild(row);
 

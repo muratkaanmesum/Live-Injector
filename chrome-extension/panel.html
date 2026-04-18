@@ -405,16 +405,6 @@
       }
       .row-badge.type-rule::before { background: var(--accent-rule); }
 
-      .instance-hit-count {
-        font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
-        font-variant-numeric: tabular-nums; text-align: right;
-        transition: color var(--dur) var(--ease);
-      }
-      @keyframes count-pulse {
-        0%   { color: oklch(0.83 0.15 72); }
-        100% { color: var(--text-3); }
-      }
-      .instance-hit-count.pulse { animation: count-pulse 600ms ease-out; }
 
       /* ── sparkline ──────────────────────────────────────────────────── */
       .sparkline {
@@ -586,7 +576,7 @@
       (function () {
         var root = document.documentElement;
         var stored = localStorage.getItem('li-theme');
-        if (stored === 'light' || stored === 'dark') root.dataset.theme = stored;
+        root.dataset.theme = (stored === 'light' || stored === 'dark') ? stored : 'dark';
         document.getElementById('theme-toggle').addEventListener('click', function () {
           var next = root.dataset.theme === 'light' ? 'dark' : 'light';
           root.dataset.theme = next;
