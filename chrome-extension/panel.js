@@ -19,6 +19,28 @@
   let storedBreakMap = {};
   let localWriteInFlight = false;
   let totalHits = 0;
+  const hitLog = new Map(); // tag → number[] (timestamps of last 8 hits)
+
+  // ── Sparkline helpers ────────────────────────────────────────────
+
+  function recordHit(tag) {
+    if (!hitLog.has(tag)) hitLog.set(tag, []);
+    const log = hitLog.get(tag);
+    log.push(Date.now());
+    if (log.length > 8) log.shift();
+  }
+
+  function sparklineHeights(tag) {
+    const log = hitLog.get(tag) || [];
+    const now = Date.now();
+    const heights = Array(8).fill(4);
+    log.forEach((ts, i) => {
+      const ageMs = now - ts;
+      const h = Math.max(4, Math.round(92 - ageMs / 800));
+      heights[8 - log.length + i] = Math.min(92, h);
+    });
+    return heights;
+  }
 
   // ── Status bar ───────────────────────────────────────────────────
 
@@ -163,9 +185,11 @@
   // ── Instance row helpers ─────────────────────────────────────────
 
   function syncInstanceRow(row) {
-    row._countCell.textContent    = String(counts.get(row._tag) || 0);
-    row._toggleInput.checked      = breakSet.has(row._tag);
+    row._countCell.textContent = String(counts.get(row._tag) || 0);
+    row._toggleInput.checked   = breakSet.has(row._tag);
     row.classList.toggle('is-breaking', breakSet.has(row._tag));
+    const heights = sparklineHeights(row._tag);
+    row._sparkBars.forEach((bar, i) => { bar.style.height = heights[i] + '%'; });
   }
 
   function updateGroupBreakBadge(group) {
@@ -299,6 +323,15 @@
       toggleInput.type      = 'checkbox';
       toggleInput.className = 'bp';
 
+      const sparklineEl = document.createElement('div');
+      sparklineEl.className = 'sparkline';
+      const sparkBars = Array.from({ length: 8 }, () => {
+        const bar = document.createElement('span');
+        bar.style.height = '4%';
+        sparklineEl.appendChild(bar);
+        return bar;
+      });
+
       toggleInput.addEventListener('change', () => {
         if (toggleInput.checked) {
           breakSet.add(tag);
@@ -318,6 +351,7 @@
 
       row.appendChild(dotEl);
       row.appendChild(nameEl);
+      row.appendChild(sparklineEl);
       row.appendChild(countCell);
       row.appendChild(toggleInput);
       group.bodyEl.appendChild(row);
@@ -325,6 +359,7 @@
       row._tag         = tag;
       row._countCell   = countCell;
       row._toggleInput = toggleInput;
+      row._sparkBars   = sparkBars;
       group.instanceEls.push(row);
 
       // update instance count label
@@ -342,7 +377,15 @@
   function handleTagSeen(tag) {
     counts.set(tag, (counts.get(tag) || 0) + 1);
     totalHits++;
+    recordHit(tag);
     upsertRow(tag);
+    // Pulse the count cell
+    const row = rowEls.get(tag);
+    if (row) {
+      row._countCell.classList.remove('pulse');
+      void row._countCell.offsetWidth; // force reflow to restart animation
+      row._countCell.classList.add('pulse');
+    }
     const group = groups.get(parseBase(tag));
     if (group) {
       group.total++;
@@ -356,6 +399,7 @@
     counts.clear();
     rowEls.clear();
     groups.clear();
+    hitLog.clear();
     rowsEl.textContent = '';
     totalHits = 0;
     render();
