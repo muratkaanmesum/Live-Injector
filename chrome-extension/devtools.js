@@ -1,5 +1,5 @@
 chrome.devtools.panels.create(
-  'Live Injector',
+  'Interceptor',
   null,
   'panel.html',
   () => { /* panel registered */ }
