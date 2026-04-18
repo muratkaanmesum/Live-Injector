@@ -610,6 +610,16 @@
       group.bodyEl.appendChild(row);
 
       row.tabIndex     = 0;
+      row.style.cursor = 'pointer';
+      row.addEventListener('click', (e) => {
+        if (e.target === toggleInput) return;
+        chrome.devtools.inspectedWindow.getResources((resources) => {
+          const match = resources.find(r => r.url.includes(tag));
+          if (match) {
+            chrome.devtools.panels.openResource(match.url, 0, () => {});
+          }
+        });
+      });
       row._tag         = tag;
       row._countCell   = countCell;
       row._toggleInput = toggleInput;
