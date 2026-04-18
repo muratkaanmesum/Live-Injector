@@ -239,9 +239,14 @@
       .group-row:hover .bulk-break { border-color: var(--border); color: var(--text-3); }
       .bulk-break:hover { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: var(--accent) !important; border-style: solid !important; }
 
-      /* ── group body (collapse — Phase 4 upgrades to animated) ───────── */
-      .group-body { display: none; border-top: 1px solid var(--border-soft); }
-      .group.is-open .group-body { display: block; }
+      /* ── group body with animated collapse ─────────────────────────── */
+      .group-body-wrap {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows 220ms var(--ease);
+      }
+      .group.is-open .group-body-wrap { grid-template-rows: 1fr; }
+      .group-body { min-height: 0; overflow: hidden; border-top: 1px solid var(--border-soft); }
 
       /* ── instance row ───────────────────────────────────────────────── */
       .instance {

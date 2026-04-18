@@ -103,8 +103,12 @@
     const bodyEl = document.createElement('div');
     bodyEl.className = 'group-body';
 
+    const wrapEl = document.createElement('div');
+    wrapEl.className = 'group-body-wrap';
+    wrapEl.appendChild(bodyEl);
+
     groupEl.appendChild(headerEl);
-    groupEl.appendChild(bodyEl);
+    groupEl.appendChild(wrapEl);
     rowsEl.appendChild(groupEl);
 
     const group = {
