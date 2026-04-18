@@ -215,11 +215,17 @@
 
     const nameCell = document.createElement('span');
     nameCell.className = 'group-name';
-    nameCell.textContent = 'BuilderID: ' + key;
+
+    const builderIdSpan = document.createElement('span');
+    builderIdSpan.className = 'group-name-id';
+    builderIdSpan.textContent = 'BuilderID: ' + key;
 
     const varCell = document.createElement('span');
     varCell.className = 'group-variation-id';
     varCell.textContent = variationId ? 'variationId: ' + variationId : '—';
+
+    nameCell.appendChild(builderIdSpan);
+    nameCell.appendChild(varCell);
 
     const breakBadgeEl = document.createElement('span');
     breakBadgeEl.className = 'break-badge hidden';
@@ -236,7 +242,6 @@
 
     headerEl.appendChild(caretWrap);
     headerEl.appendChild(nameCell);
-    headerEl.appendChild(varCell);
     headerEl.appendChild(breakBadgeEl);
     headerEl.appendChild(hitCountCell);
     headerEl.appendChild(bulkBreakBtn);
