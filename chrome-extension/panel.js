@@ -224,7 +224,12 @@
     varCell.className = 'group-variation-id';
     varCell.textContent = variationId ? 'variationId: ' + variationId : '—';
 
+    const sepSpan = document.createElement('span');
+    sepSpan.className = 'group-name-sep';
+    sepSpan.textContent = '|';
+
     nameCell.appendChild(builderIdSpan);
+    nameCell.appendChild(sepSpan);
     nameCell.appendChild(varCell);
 
     const breakBadgeEl = document.createElement('span');
