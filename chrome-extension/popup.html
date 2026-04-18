@@ -3,230 +3,284 @@
   <head>
     <meta charset="utf-8" />
     <style>
+      /* ── font ───────────────────────────────────────────────────────── */
+      @font-face {
+        font-family: 'JetBrains Mono';
+        src: url('fonts/JetBrainsMono[wght].woff2') format('woff2-variations');
+        font-weight: 100 800;
+        font-display: swap;
+      }
+
+      /* ── design tokens ──────────────────────────────────────────────── */
+      :root {
+        --font-ui:   ui-sans-serif, -apple-system, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --ease: cubic-bezier(0.2, 0, 0, 1);
+        --dur: 160ms;
+
+        --accent:      oklch(0.64 0.21 26);
+        --accent-soft: oklch(0.64 0.21 26 / 0.14);
+        --accent-halo: oklch(0.64 0.21 26 / 0.28);
+
+        --green:      oklch(0.68 0.17 148);
+        --green-glow: oklch(0.68 0.17 148 / 0.6);
+        --green-soft: oklch(0.68 0.17 148 / 0.15);
+        --red:        oklch(0.60 0.20 25);
+        --red-glow:   oklch(0.60 0.20 25 / 0.5);
+
+        /* dark theme */
+        --bg:          oklch(0.17 0.005 60);
+        --bg-sunk:     oklch(0.14 0.005 60);
+        --surface:     oklch(0.21 0.005 60);
+        --surface-hi:  oklch(0.24 0.005 60);
+        --border:      oklch(0.29 0.005 60);
+        --border-soft: oklch(0.23 0.005 60);
+        --text:        oklch(0.96 0 0);
+        --text-2:      oklch(0.78 0.004 60);
+        --text-3:      oklch(0.56 0.006 60);
+        --text-4:      oklch(0.40 0.006 60);
+      }
+
+      /* ── reset ──────────────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; }
       body {
         width: 300px;
-        padding: 20px;
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        background: #f5f5f5;
+        font-family: var(--font-ui);
+        font-size: 12.5px;
+        line-height: 1.45;
+        color: var(--text);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
       }
+      button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 
-      .header {
-        text-align: center;
-        margin-bottom: 20px;
-      }
-
-      .header h2 {
-        margin: 0 0 4px 0;
-        font-size: 16px;
-      }
-
-      .header .version {
-        font-size: 11px;
-        color: #999;
-      }
-
-      .status {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 15px;
-        padding: 10px;
-        border-radius: 6px;
-        font-weight: 500;
-      }
-
-      .status.connected    { background: #e8f5e8; color: #2e7d32; }
-      .status.disconnected { background: #ffebee; color: #c62828; }
-
-      .status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        margin-right: 8px;
-        flex-shrink: 0;
-      }
-      .connected    .status-dot { background: #4caf50; }
-      .disconnected .status-dot { background: #f44336; }
-
-      .info {
-        background: white;
-        padding: 15px;
-        border-radius: 6px;
-        margin-bottom: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      }
-      .info h3 { margin: 0 0 10px 0; font-size: 14px; color: #333; }
-      .info p  { margin: 0; font-size: 12px; color: #666; line-height: 1.4; }
-
-      .preamble-section {
-        background: white;
-        padding: 15px;
-        border-radius: 6px;
-        margin-bottom: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      }
-      .preamble-section h3 { margin: 0 0 8px 0; font-size: 14px; color: #333; }
-      .preamble-section p  { margin: 0 0 8px 0; font-size: 11px; color: #888; line-height: 1.4; }
-      #preamble {
-        width: 100%;
-        height: 110px;
-        font-family: monospace;
-        font-size: 11px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        padding: 6px;
-        resize: vertical;
-        box-sizing: border-box;
-        color: #333;
-      }
-      .save-row {
+      /* ── titlebar ───────────────────────────────────────────────────── */
+      .titlebar {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-top: 8px;
+        padding: 10px 12px 9px;
+        border-bottom: 1px solid var(--border-soft);
       }
-      #save-status {
-        font-size: 11px;
-        color: #4caf50;
-        flex: 1;
-        text-align: right;
-        opacity: 0;
-        transition: opacity 0.3s;
+      .brand-mark {
+        width: 15px; height: 15px; flex-shrink: 0;
+        border-radius: 4px;
+        background: linear-gradient(135deg, var(--accent) 0%, oklch(0.52 0.2 35) 100%);
+        box-shadow: 0 0 8px var(--accent-halo);
+      }
+      .brand-title { font-weight: 600; font-size: 13px; letter-spacing: -0.01em; flex: 1; }
+      .brand-sep   { color: var(--text-4); font-size: 11px; }
+      .brand-ver   {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        color: var(--text-4);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
       }
 
-      .toggle-section {
-        background: white;
-        padding: 12px 15px;
-        border-radius: 6px;
-        margin-bottom: 15px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      /* ── status row ─────────────────────────────────────────────────── */
+      .status-bar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        gap: 7px;
+        padding: 7px 12px;
+        background: var(--bg-sunk);
+        border-bottom: 1px solid var(--border-soft);
       }
-      .toggle-section .toggle-label {
-        font-size: 13px;
-        color: #333;
+      .status-dot {
+        width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        background: var(--text-4);
+        transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+      }
+      .status-bar.connected    .status-dot { background: var(--green); box-shadow: 0 0 5px var(--green-glow); }
+      .status-bar.disconnected .status-dot { background: var(--red);   box-shadow: 0 0 5px var(--red-glow); }
+
+      .status-text {
+        flex: 1;
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        color: var(--text-3);
+      }
+      .status-bar.connected    .status-text { color: var(--green); }
+      .status-bar.disconnected .status-text { color: oklch(0.72 0.16 25); }
+
+      /* ── buttons ────────────────────────────────────────────────────── */
+      .btn {
+        font-size: 10.5px;
         font-weight: 500;
-      }
-      .toggle-section .toggle-sub {
-        font-size: 11px;
-        color: #999;
-        margin-top: 2px;
-      }
-      .toggle-switch {
-        position: relative;
-        width: 36px;
-        height: 20px;
-        flex-shrink: 0;
-      }
-      .toggle-switch input { opacity: 0; width: 0; height: 0; }
-      .toggle-slider {
-        position: absolute;
-        inset: 0;
-        background: #ccc;
-        border-radius: 20px;
+        padding: 3px 9px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        color: var(--text-2);
+        background: var(--surface);
+        transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
         cursor: pointer;
-        transition: background 0.2s;
+        white-space: nowrap;
       }
-      .toggle-slider:before {
+      .btn:hover   { background: var(--surface-hi); color: var(--text); }
+      .btn.primary {
+        background: var(--accent-soft);
+        border-color: oklch(0.64 0.21 26 / 0.40);
+        color: oklch(0.82 0.15 26);
+      }
+      .btn.primary:hover { background: oklch(0.64 0.21 26 / 0.22); }
+      .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+      /* ── content ────────────────────────────────────────────────────── */
+      .content { padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+
+      /* ── card ───────────────────────────────────────────────────────── */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+      .card-header {
+        padding: 6px 10px;
+        border-bottom: 1px solid var(--border-soft);
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-4);
+      }
+
+      /* ── setup list ─────────────────────────────────────────────────── */
+      .setup-body { padding: 8px 10px 9px; }
+      .setup-body ol {
+        margin: 0; padding: 0 0 0 15px;
+        display: flex; flex-direction: column; gap: 4px;
+      }
+      .setup-body li { font-size: 11.5px; color: var(--text-2); line-height: 1.5; }
+      .setup-body code {
+        font-family: var(--font-mono); font-size: 10.5px;
+        background: var(--bg-sunk); padding: 1px 4px; border-radius: 3px;
+        color: var(--text-2);
+      }
+
+      /* ── toggle row ─────────────────────────────────────────────────── */
+      .toggle-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 9px 10px;
+      }
+      .toggle-row + .toggle-row { border-top: 1px solid var(--border-soft); }
+      .toggle-info { flex: 1; }
+      .toggle-label { font-size: 12px; font-weight: 500; color: var(--text); }
+      .toggle-sub {
+        font-size: 10.5px; color: var(--text-3); margin-top: 2px;
+      }
+      .toggle-sub code {
+        font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+      }
+
+      /* ── toggle switch ──────────────────────────────────────────────── */
+      .toggle-switch { position: relative; width: 30px; height: 17px; flex-shrink: 0; }
+      .toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+      .toggle-slider {
+        position: absolute; inset: 0;
+        background: var(--border); border-radius: 17px; cursor: pointer;
+        transition: background var(--dur) var(--ease);
+      }
+      .toggle-slider::before {
         content: '';
         position: absolute;
-        width: 14px;
-        height: 14px;
-        left: 3px;
-        top: 3px;
-        background: white;
-        border-radius: 50%;
-        transition: transform 0.2s;
+        width: 11px; height: 11px; left: 3px; top: 3px;
+        background: var(--text-4); border-radius: 50%;
+        transition: transform var(--dur) var(--ease), background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
       }
-      .toggle-switch input:checked + .toggle-slider { background: #4caf50; }
-      .toggle-switch input:checked + .toggle-slider:before { transform: translateX(16px); }
-
-      .button {
-        width: 100%;
-        padding: 10px;
-        background: #2196f3;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        margin-bottom: 10px;
+      .toggle-switch input:checked + .toggle-slider { background: oklch(0.64 0.21 26 / 0.45); }
+      .toggle-switch input:checked + .toggle-slider::before {
+        background: var(--accent);
+        transform: translateX(13px);
+        box-shadow: 0 0 5px var(--accent-halo);
       }
-      .button:hover    { background: #1976d2; }
-      .button:disabled { background: #ccc; cursor: not-allowed; }
-      .button.save     { background: #4caf50; }
-      .button.save:hover { background: #388e3c; }
 
+      /* ── preamble ───────────────────────────────────────────────────── */
+      .preamble-body { padding: 8px 10px 9px; }
+      .preamble-desc { font-size: 11px; color: var(--text-3); margin-bottom: 6px; }
+      #preamble {
+        width: 100%; height: 96px;
+        font-family: var(--font-mono); font-size: 11px; line-height: 1.5;
+        border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+        padding: 6px 8px; resize: vertical;
+        color: var(--text-2); background: var(--bg-sunk);
+        outline: none;
+        transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+      }
+      #preamble:focus {
+        border-color: oklch(0.64 0.21 26 / 0.5);
+        box-shadow: 0 0 0 2px var(--accent-soft);
+      }
+      #preamble::placeholder { color: var(--text-4); }
+      .save-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+      #save-status {
+        flex: 1; text-align: right;
+        font-family: var(--font-mono); font-size: 10.5px; color: var(--green);
+        opacity: 0; transition: opacity 0.3s;
+      }
     </style>
   </head>
   <body>
-    <div class="header">
-      <h2>Live Code Injector</h2>
-      <div class="version">v2 — embedded server</div>
+
+    <div class="titlebar">
+      <div class="brand-mark"></div>
+      <span class="brand-title">Live Injector</span>
+      <span class="brand-sep">/</span>
+      <span class="brand-ver">v2</span>
     </div>
 
-    <div id="status" class="status disconnected">
+    <div id="status" class="status-bar disconnected">
       <div class="status-dot"></div>
-      <span id="status-text">Disconnected</span>
+      <span id="status-text" class="status-text">Disconnected</span>
+      <button id="reconnect"  class="btn primary">Reconnect</button>
+      <button id="disconnect" class="btn" style="display:none">Disconnect</button>
     </div>
 
-    <div class="info">
-      <h3>How it works:</h3>
-      <p>
-        1. Install &amp; start the VS Code extension<br />
-        2. Save any .js or .css file in VS Code<br />
-        3. Code executes instantly in the active tab
-      </p>
-    </div>
+    <div class="content">
 
-    <div class="toggle-section">
-      <div>
-        <div class="toggle-label">Clear Events</div>
-        <div class="toggle-sub">Runs <code>Insider.eventManager.clearAll()</code></div>
+      <div class="card">
+        <div class="card-header">Setup</div>
+        <div class="setup-body">
+          <ol>
+            <li>Install &amp; start the <strong>VS Code extension</strong></li>
+            <li>Save any <code>.js</code> or <code>.css</code> file in VS Code</li>
+            <li>Code executes instantly in the active tab</li>
+          </ol>
+        </div>
       </div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="clear-events-toggle" />
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
 
-    <div class="toggle-section">
-      <div>
-        <div class="toggle-label">Eval Interceptor</div>
-        <div class="toggle-sub">Adds sourceURL to classified eval'd code</div>
+      <div class="card">
+        <div class="card-header">Settings</div>
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-label">Clear Events</div>
+            <div class="toggle-sub">Runs <code>Insider.eventManager.clearAll()</code></div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="clear-events-toggle" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
       </div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="eval-interceptor-toggle" />
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
 
-    <div class="toggle-section">
-      <div>
-        <div class="toggle-label">Script Interceptor</div>
-        <div class="toggle-sub">Tags inline <code>&lt;script&gt;</code> campaigns</div>
+      <div class="card">
+        <div class="card-header">JS Preamble</div>
+        <div class="preamble-body">
+          <div class="preamble-desc">Prepended to every injected JS file.</div>
+          <textarea id="preamble" spellcheck="false" placeholder="const myVar = window.someGlobal;"></textarea>
+          <div class="save-row">
+            <button id="save-preamble" class="btn primary" style="padding:4px 14px;">Save</button>
+            <span id="save-status">Saved!</span>
+          </div>
+        </div>
       </div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="script-interceptor-toggle" />
-        <span class="toggle-slider"></span>
-      </label>
-    </div>
 
-    <div class="preamble-section">
-      <h3>JS Variables (Preamble)</h3>
-      <p>Prepended to every injected JS file.</p>
-      <textarea id="preamble" spellcheck="false" placeholder="const myVar = window.someGlobal;"></textarea>
-      <div class="save-row">
-        <button id="save-preamble" class="button save" style="width:auto;padding:6px 14px;margin-bottom:0">Save</button>
-        <span id="save-status">Saved!</span>
-      </div>
     </div>
-
-    <button id="reconnect"  class="button">Reconnect</button>
-    <button id="disconnect" class="button" style="display:none">Disconnect</button>
 
     <script src="popup.js"></script>
   </body>

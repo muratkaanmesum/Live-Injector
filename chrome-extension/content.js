@@ -2,45 +2,49 @@
 (function () {
   'use strict';
 
-  // Deduplicate the animation style — inject once, reuse forever
-  let animationStyleInjected = false;
-
-  function ensureAnimationStyle() {
-    if (animationStyleInjected || document.getElementById('live-injector-anim')) { return; }
-    const style = document.createElement('style');
-    style.id = 'live-injector-anim';
-    style.textContent = `
-      @keyframes liSlideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to   { transform: translateX(0);   opacity: 1; }
-      }
-    `;
-    document.head.appendChild(style);
-    animationStyleInjected = true;
-  }
-
   function showNotification(filename, codeType) {
-    ensureAnimationStyle();
+    const name = filename || 'unknown';
+    const kind = codeType || 'file';
 
-    const notification = document.createElement('div');
-    notification.style.cssText = `
-      position: fixed;
-      top: 50px;
-      right: 10px;
-      background: #2196F3;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 11px;
-      z-index: 999999;
-      pointer-events: none;
-      animation: liSlideIn 0.3s ease-out;
+    const host = document.createElement('div');
+    host.style.cssText = 'all:initial;position:fixed;top:12px;right:12px;z-index:2147483647;pointer-events:none;';
+
+    const shadow = host.attachShadow({ mode: 'closed' });
+    shadow.innerHTML = `
+      <style>
+        @keyframes liIn {
+          from { transform: translateX(calc(100% + 24px)); opacity: 0; }
+          to   { transform: translateX(0); opacity: 1; }
+        }
+        .toast {
+          display: flex; align-items: baseline; gap: 6px;
+          background: oklch(0.21 0.005 60);
+          border: 1px solid oklch(0.29 0.005 60);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+          border-radius: 6px; padding: 7px 11px;
+          font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+          font-size: 11px; white-space: nowrap;
+          animation: liIn 0.25s cubic-bezier(0.2,0,0,1) forwards;
+        }
+        .label { color: oklch(0.56 0.006 60); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+        .file  { color: oklch(0.82 0.15 26); }
+        .badge {
+          color: oklch(0.56 0.006 60); background: oklch(0.17 0.005 60);
+          border: 1px solid oklch(0.29 0.005 60);
+          border-radius: 3px; font-size: 9.5px; padding: 1px 5px;
+        }
+      </style>
+      <div class="toast">
+        <span class="label">injected</span>
+        <span class="file"></span>
+        <span class="badge"></span>
+      </div>
     `;
-    notification.textContent = `Executed: ${filename} (${codeType})`;
-    document.body.appendChild(notification);
+    shadow.querySelector('.file').textContent = name;
+    shadow.querySelector('.badge').textContent = kind;
 
-    setTimeout(() => { notification.remove(); }, 2000);
+    document.documentElement.appendChild(host);
+    setTimeout(() => { host.remove(); }, 2500);
   }
 
   chrome.runtime.onMessage.addListener((message) => {
@@ -64,8 +68,14 @@
   chrome.storage.local.get(
     ['evalInterceptorEnabled', 'scriptInterceptorEnabled'],
     function (result) {
-      applyEvalConfig(result.evalInterceptorEnabled || false);
-      applyScriptConfig(result.scriptInterceptorEnabled || false);
+      const evalOn   = result.evalInterceptorEnabled   ?? true;
+      const scriptOn = result.scriptInterceptorEnabled ?? true;
+      applyEvalConfig(evalOn);
+      applyScriptConfig(scriptOn);
+      const toSet = {};
+      if (result.evalInterceptorEnabled   === undefined) toSet.evalInterceptorEnabled   = true;
+      if (result.scriptInterceptorEnabled === undefined) toSet.scriptInterceptorEnabled = true;
+      if (Object.keys(toSet).length) chrome.storage.local.set(toSet);
     }
   );
 
@@ -85,10 +95,10 @@
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area !== 'local') return;
     if ('evalInterceptorEnabled' in changes) {
-      applyEvalConfig(changes.evalInterceptorEnabled.newValue || false);
+      applyEvalConfig(changes.evalInterceptorEnabled.newValue ?? true);
     }
     if ('scriptInterceptorEnabled' in changes) {
-      applyScriptConfig(changes.scriptInterceptorEnabled.newValue || false);
+      applyScriptConfig(changes.scriptInterceptorEnabled.newValue ?? true);
     }
     if ('liBreakTags' in changes) {
       applyBreakSet(changes.liBreakTags.newValue || {});

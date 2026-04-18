@@ -11,18 +11,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
   const clearEventsToggle = document.getElementById('clear-events-toggle');
 
-  const evalInterceptorToggle   = document.getElementById('eval-interceptor-toggle');
-  const scriptInterceptorToggle = document.getElementById('script-interceptor-toggle');
-
   // ── Load saved values ──────────────────────────────────────────
 
   chrome.storage.local.get(
-    ['preamble', 'clearEvents', 'evalInterceptorEnabled', 'scriptInterceptorEnabled'],
-    ({ preamble = '', clearEvents = false, evalInterceptorEnabled = false, scriptInterceptorEnabled = false }) => {
-      preambleTA.value                = preamble;
-      clearEventsToggle.checked       = clearEvents;
-      evalInterceptorToggle.checked   = evalInterceptorEnabled;
-      scriptInterceptorToggle.checked = scriptInterceptorEnabled;
+    ['preamble', 'clearEvents'],
+    ({ preamble = '', clearEvents = false }) => {
+      preambleTA.value          = preamble;
+      clearEventsToggle.checked = clearEvents;
     }
   );
 
@@ -30,16 +25,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
   clearEventsToggle.addEventListener('change', () => {
     chrome.storage.local.set({ clearEvents: clearEventsToggle.checked });
-  });
-
-  // ── Eval Interceptor ──────────────────────────────────────────
-
-  evalInterceptorToggle.addEventListener('change', () => {
-    chrome.storage.local.set({ evalInterceptorEnabled: evalInterceptorToggle.checked });
-  });
-
-  scriptInterceptorToggle.addEventListener('change', () => {
-    chrome.storage.local.set({ scriptInterceptorEnabled: scriptInterceptorToggle.checked });
   });
 
   // ── Save preamble ──────────────────────────────────────────────
@@ -59,12 +44,12 @@ document.addEventListener('DOMContentLoaded', function () {
       if (chrome.runtime.lastError) { return; }
 
       if (response && response.connected) {
-        statusEl.className       = 'status connected';
+        statusEl.className       = 'status-bar connected';
         statusText.textContent   = 'Connected to VS Code';
         reconnectBtn.style.display  = 'none';
         disconnectBtn.style.display = 'block';
       } else {
-        statusEl.className       = 'status disconnected';
+        statusEl.className       = 'status-bar disconnected';
         const attempts = response ? response.reconnectAttempts : 0;
         const max      = response ? response.maxReconnectAttempts : 10;
         statusText.textContent = attempts >= max
