@@ -30,6 +30,10 @@
   // Pending group singleton (tags awaiting Insider runtime resolution)
   let pendingGroup = null;
 
+  // Testing variation state
+  let testingVariationId = null;
+  let testingPollTimer   = null;
+
   // ── Sparkline helpers ────────────────────────────────────────────
 
   function recordHit(tag) {
@@ -159,6 +163,33 @@
     }
   }
 
+  // ── Testing variation poller ─────────────────────────────────────
+
+  async function pollTestingVariation() {
+    const expr = `(function(){try{
+      if(!window.Insider||!Insider.dom)return null;
+      var v=Insider.dom('.inspector-variation-list>option:selected').attr('value');
+      return v?String(v):null;
+    }catch(e){return null;}})()`;
+    const next = await evalOnPage(expr);
+    const normalized = next || null;
+    if (normalized === testingVariationId) return;
+    applyTestingVariation(normalized);
+  }
+
+  function applyTestingVariation(nextId) {
+    if (testingVariationId) {
+      const prevBid = varIdToBuilder.get(testingVariationId);
+      const prevGroup = prevBid && groups.get(prevBid);
+      if (prevGroup) prevGroup.groupEl.classList.remove('is-testing');
+    }
+    testingVariationId = nextId;
+    if (!nextId) return;
+    const bid = varIdToBuilder.get(nextId);
+    const g = bid && groups.get(bid);
+    if (g) g.groupEl.classList.add('is-testing');
+  }
+
   // ── Group meta subtitle helper ───────────────────────────────────
 
   function updateGroupMeta(group) {
@@ -223,6 +254,11 @@
     const varCell = document.createElement('span');
     varCell.className = 'group-variation-id';
     varCell.textContent = variationId ? 'variationId: ' + variationId : '—';
+
+    const testingPill = document.createElement('span');
+    testingPill.className = 'testing-pill';
+    testingPill.textContent = 'live';
+    varCell.appendChild(testingPill);
 
     const sepSpan = document.createElement('span');
     sepSpan.className = 'group-name-sep';
@@ -303,6 +339,11 @@
     });
 
     groups.set(key, group);
+
+    if (testingVariationId && varIdToBuilder.get(testingVariationId) === key) {
+      groupEl.classList.add('is-testing');
+    }
+
     return group;
   }
 
@@ -926,6 +967,7 @@
   if (chrome.devtools && chrome.devtools.network) {
     chrome.devtools.network.onNavigated.addListener(() => {
       clearTags();
+      applyTestingVariation(null);
       resolveOrigin();
     });
   }
@@ -933,5 +975,7 @@
   // ── Init ─────────────────────────────────────────────────────────
 
   resolveOrigin();
+  pollTestingVariation();
+  testingPollTimer = setInterval(pollTestingVariation, 1500);
 
 })();

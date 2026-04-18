@@ -286,6 +286,45 @@
         .group.is-pending .group-name { animation: none; opacity: 0.7; }
       }
 
+      /* ── testing glow ───────────────────────────────────────────────── */
+      .group.is-testing {
+        border-color: oklch(0.78 0.11 180 / 0.55);
+        box-shadow:
+          0 0 0 1px oklch(0.78 0.11 180 / 0.35) inset,
+          0 0 18px -2px oklch(0.78 0.11 180 / 0.45);
+      }
+      .group.is-testing .group-variation-id {
+        color: var(--accent-rule);
+      }
+      .group.is-testing .testing-pill {
+        display: inline-flex;
+      }
+      .testing-pill {
+        display: none;
+        align-items: center;
+        gap: 4px;
+        margin-left: 8px;
+        padding: 1px 6px;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent-rule);
+        background: oklch(0.78 0.11 180 / 0.12);
+        border: 1px solid oklch(0.78 0.11 180 / 0.35);
+        border-radius: 999px;
+        vertical-align: middle;
+      }
+      .testing-pill::before {
+        content: "";
+        display: inline-block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent-rule);
+        box-shadow: 0 0 6px var(--accent-rule);
+      }
+
       /* ── group body with animated collapse ─────────────────────────── */
       .group-body-wrap {
         display: grid;
