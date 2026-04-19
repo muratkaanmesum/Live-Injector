@@ -22,6 +22,14 @@
     return fn ? fn(code, fallback, n) : fallback + '-' + n;
   }
 
+  function notifyOutcome(tag, outcome, message) {
+    const payload = { source: 'li-rule-outcome', tag, outcome };
+    if (message !== undefined) payload.message = message;
+    try {
+      window.postMessage(payload, location.origin);
+    } catch (_) { /* postMessage can throw on detached windows */ }
+  }
+
   function getBreakSet() {
     return window.__liGetBreakSet ? window.__liGetBreakSet() : null;
   }
@@ -42,7 +50,18 @@
   function liEval(code) {
     if (typeof code !== 'string') return _eval.call(this, code);
     const wrapped = wrapCode(code, 'eval');
-    return _eval.call(this, wrapped.code);
+    const isRule = wrapped.tag && wrapped.tag.startsWith('Custom-Rule-');
+    try {
+      const result = _eval.call(this, wrapped.code);
+      if (isRule) notifyOutcome(wrapped.tag, result ? 'pass' : 'fail');
+      return result;
+    } catch (e) {
+      if (isRule) {
+        const message = String(e && e.message != null ? e.message : e).slice(0, 200);
+        notifyOutcome(wrapped.tag, 'error', message);
+      }
+      throw e;
+    }
   }
 
   // ── Lazy install / uninstall ──────────────────────────────────────
