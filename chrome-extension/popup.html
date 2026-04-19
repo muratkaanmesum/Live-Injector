@@ -19,7 +19,7 @@
         --radius-sm: 4px;
         --radius-md: 6px;
         --ease: cubic-bezier(0.2, 0, 0, 1);
-        --dur: 160ms;
+        --dur: 180ms;
 
         --accent:      oklch(0.64 0.21 26);
         --accent-soft: oklch(0.64 0.21 26 / 0.14);
@@ -27,7 +27,6 @@
 
         --green:      oklch(0.68 0.17 148);
         --green-glow: oklch(0.68 0.17 148 / 0.6);
-        --green-soft: oklch(0.68 0.17 148 / 0.15);
         --red:        oklch(0.60 0.20 25);
         --red-glow:   oklch(0.60 0.20 25 / 0.5);
 
@@ -48,7 +47,7 @@
       *, *::before, *::after { box-sizing: border-box; }
       html, body { margin: 0; }
       body {
-        width: 300px;
+        width: 320px;
         font-family: var(--font-ui);
         font-size: 12.5px;
         line-height: 1.45;
@@ -130,46 +129,119 @@
       .btn.primary:hover { background: oklch(0.64 0.21 26 / 0.22); }
       .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-      /* ── content ────────────────────────────────────────────────────── */
-      .content { padding: 10px 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-
-      /* ── card ───────────────────────────────────────────────────────── */
-      .card {
-        background: var(--surface);
-        border: 1px solid var(--border-soft);
-        border-radius: var(--radius-md);
-        overflow: hidden;
-      }
-      .card-header {
-        padding: 6px 10px;
+      /* ── drawer tabs ────────────────────────────────────────────────── */
+      .drawer-tabs {
+        display: flex; align-items: center; gap: 6px;
+        padding: 7px 10px;
+        background: var(--bg-sunk);
         border-bottom: 1px solid var(--border-soft);
+      }
+      .tab-chip {
+        flex: 1;
+        height: 28px; padding: 0 10px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+        color: var(--text-3);
+        display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        font-size: 11.5px; font-weight: 500;
+        white-space: nowrap;
+        transition:
+          background var(--dur) var(--ease),
+          color var(--dur) var(--ease),
+          border-color var(--dur) var(--ease);
+      }
+      .tab-chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+      .tab-chip:hover { background: var(--surface); color: var(--text); }
+      .tab-chip.is-active {
+        background: var(--accent-soft);
+        border-color: oklch(0.64 0.21 26 / 0.45);
+        color: oklch(0.86 0.12 26);
+      }
+      .tab-chip.is-active:hover { background: oklch(0.64 0.21 26 / 0.22); }
+      .tab-chip .tab-badge {
+        display: inline-block;
+        width: 5px; height: 5px; border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 5px var(--accent-halo);
+        opacity: 0;
+        transition: opacity var(--dur) var(--ease);
+      }
+      .tab-chip.has-indicator .tab-badge { opacity: 1; }
+
+      /* ── drawer ─────────────────────────────────────────────────────── */
+      .drawer {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows var(--dur) var(--ease);
+      }
+      .drawer.is-open { grid-template-rows: 1fr; }
+      .drawer-inner {
+        overflow: hidden;
+        min-height: 0;
+      }
+
+      .panel {
+        display: none;
+        padding: 12px 12px 14px;
+        animation: panelFade var(--dur) var(--ease);
+      }
+      .panel.is-active { display: block; }
+      @keyframes panelFade {
+        from { opacity: 0; transform: translateY(-3px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .panel-title {
         font-size: 10px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.07em;
+        letter-spacing: 0.08em;
         color: var(--text-4);
+        margin: 0 0 8px;
       }
 
       /* ── setup list ─────────────────────────────────────────────────── */
-      .setup-body { padding: 8px 10px 9px; }
-      .setup-body ol {
-        margin: 0; padding: 0 0 0 15px;
-        display: flex; flex-direction: column; gap: 4px;
+      .setup-list {
+        margin: 0; padding: 0;
+        list-style: none;
+        counter-reset: setup;
+        display: flex; flex-direction: column; gap: 6px;
       }
-      .setup-body li { font-size: 11.5px; color: var(--text-2); line-height: 1.5; }
-      .setup-body code {
+      .setup-list li {
+        counter-increment: setup;
+        position: relative;
+        padding-left: 22px;
+        font-size: 11.5px; color: var(--text-2); line-height: 1.5;
+      }
+      .setup-list li::before {
+        content: counter(setup);
+        position: absolute;
+        left: 0; top: 1px;
+        width: 15px; height: 15px;
+        display: grid; place-items: center;
+        font-family: var(--font-mono);
+        font-size: 9.5px; font-weight: 600;
+        color: oklch(0.82 0.15 26);
+        background: var(--accent-soft);
+        border: 1px solid oklch(0.64 0.21 26 / 0.35);
+        border-radius: 4px;
+      }
+      .setup-list code {
         font-family: var(--font-mono); font-size: 10.5px;
-        background: var(--bg-sunk); padding: 1px 4px; border-radius: 3px;
+        background: var(--bg-sunk); padding: 1px 5px; border-radius: 3px;
         color: var(--text-2);
       }
 
-      /* ── toggle row ─────────────────────────────────────────────────── */
+      /* ── settings row ───────────────────────────────────────────────── */
       .toggle-row {
         display: flex; align-items: center; gap: 10px;
-        padding: 9px 10px;
+        padding: 8px 10px;
+        background: var(--bg-sunk);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-md);
       }
-      .toggle-row + .toggle-row { border-top: 1px solid var(--border-soft); }
-      .toggle-info { flex: 1; }
+      .toggle-row + .toggle-row { margin-top: 6px; }
+      .toggle-info { flex: 1; min-width: 0; }
       .toggle-label { font-size: 12px; font-weight: 500; color: var(--text); }
       .toggle-sub {
         font-size: 10.5px; color: var(--text-3); margin-top: 2px;
@@ -201,10 +273,9 @@
       }
 
       /* ── preamble ───────────────────────────────────────────────────── */
-      .preamble-body { padding: 8px 10px 9px; }
-      .preamble-desc { font-size: 11px; color: var(--text-3); margin-bottom: 6px; }
+      .preamble-desc { font-size: 11px; color: var(--text-3); margin: 0 0 6px; }
       #preamble {
-        width: 100%; height: 96px;
+        width: 100%; height: 120px;
         font-family: var(--font-mono); font-size: 11px; line-height: 1.5;
         border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
         padding: 6px 8px; resize: vertical;
@@ -217,7 +288,7 @@
         box-shadow: 0 0 0 2px var(--accent-soft);
       }
       #preamble::placeholder { color: var(--text-4); }
-      .save-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+      .save-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
       #save-status {
         flex: 1; text-align: right;
         font-family: var(--font-mono); font-size: 10.5px; color: var(--green);
@@ -241,45 +312,70 @@
       <button id="disconnect" class="btn" style="display:none">Disconnect</button>
     </div>
 
-    <div class="content">
+    <div class="drawer-tabs" role="tablist">
+      <button class="tab-chip" data-tab="setup" role="tab" aria-controls="panel-setup" aria-selected="false" title="Setup">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.2"/>
+          <path d="M8 5.4v3M8 10.6h.01"/>
+        </svg>
+        <span>Setup</span>
+      </button>
+      <button class="tab-chip" data-tab="settings" role="tab" aria-controls="panel-settings" aria-selected="false" title="Settings">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M2.5 4.5h7M12 4.5h1.5"/>
+          <circle cx="10.8" cy="4.5" r="1.3"/>
+          <path d="M2.5 11.5h3M8 11.5h5.5"/>
+          <circle cx="6.8" cy="11.5" r="1.3"/>
+        </svg>
+        <span>Settings</span>
+        <span class="tab-badge" aria-hidden="true"></span>
+      </button>
+      <button class="tab-chip" data-tab="preamble" role="tab" aria-controls="panel-preamble" aria-selected="false" title="JS Preamble">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5.5 5 2.5 8l3 3M10.5 5l3 3-3 3M9 3.5 7 12.5"/>
+        </svg>
+        <span>Preamble</span>
+        <span class="tab-badge" aria-hidden="true"></span>
+      </button>
+    </div>
 
-      <div class="card">
-        <div class="card-header">Setup</div>
-        <div class="setup-body">
-          <ol>
+    <div class="drawer" id="drawer">
+      <div class="drawer-inner">
+
+        <section class="panel" id="panel-setup" role="tabpanel" aria-labelledby="tab-setup">
+          <h3 class="panel-title">Setup</h3>
+          <ol class="setup-list">
             <li>Install &amp; start the <strong>VS Code extension</strong></li>
             <li>Save any <code>.js</code> or <code>.css</code> file in VS Code</li>
             <li>Code executes instantly in the active tab</li>
           </ol>
-        </div>
-      </div>
+        </section>
 
-      <div class="card">
-        <div class="card-header">Settings</div>
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-label">Clear Events</div>
-            <div class="toggle-sub">Runs <code>Insider.eventManager.clearAll()</code></div>
+        <section class="panel" id="panel-settings" role="tabpanel" aria-labelledby="tab-settings">
+          <h3 class="panel-title">Settings</h3>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Clear Events</div>
+              <div class="toggle-sub">Runs <code>Insider.eventManager.clearAll()</code></div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="clear-events-toggle" />
+              <span class="toggle-slider"></span>
+            </label>
           </div>
-          <label class="toggle-switch">
-            <input type="checkbox" id="clear-events-toggle" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
+        </section>
 
-      <div class="card">
-        <div class="card-header">JS Preamble</div>
-        <div class="preamble-body">
-          <div class="preamble-desc">Prepended to every injected JS file.</div>
+        <section class="panel" id="panel-preamble" role="tabpanel" aria-labelledby="tab-preamble">
+          <h3 class="panel-title">JS Preamble</h3>
+          <p class="preamble-desc">Prepended to every injected JS file.</p>
           <textarea id="preamble" spellcheck="false" placeholder="const myVar = window.someGlobal;"></textarea>
           <div class="save-row">
             <button id="save-preamble" class="btn primary" style="padding:4px 14px;">Save</button>
             <span id="save-status">Saved!</span>
           </div>
-        </div>
-      </div>
+        </section>
 
+      </div>
     </div>
 
     <script src="popup.js"></script>
