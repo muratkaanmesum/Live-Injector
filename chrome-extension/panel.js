@@ -12,6 +12,7 @@
   let currentOrigin = null;
   let breakSet = new Set();
   const counts = new Map();
+  const outcomes = new Map(); // tag -> { outcome: 'pass'|'fail'|'error', at: number, message: string|null }
   const rowEls = new Map();
   // builderId → { groupEl, headerEl, bodyEl, nameCell, metaEl, breakBadgeEl,
   //               hitCountCell, instanceEls, expanded, campaignCount, ruleCount, builderId }
@@ -450,6 +451,30 @@
     row.classList.toggle('is-breaking', breakSet.has(row._tag));
     const heights = sparklineHeights(row._tag);
     row._sparkBars.forEach((bar, i) => { bar.style.height = heights[i] + '%'; });
+
+    const el = row._outcomeEl;
+    if (!el) return;
+    el.classList.remove('is-pass', 'is-fail', 'is-error');
+    const o = outcomes.get(row._tag);
+    if (!o) {
+      el.textContent = '';
+      el.removeAttribute('title');
+      return;
+    }
+    const when = new Date(o.at).toTimeString().slice(0, 8);
+    if (o.outcome === 'pass') {
+      el.textContent = '✓';
+      el.classList.add('is-pass');
+      el.title = `Last outcome: passed (${when})`;
+    } else if (o.outcome === 'fail') {
+      el.textContent = '✗';
+      el.classList.add('is-fail');
+      el.title = `Last outcome: failed (${when})`;
+    } else {
+      el.textContent = '⚠';
+      el.classList.add('is-error');
+      el.title = `Last outcome: errored: ${o.message || ''} (${when})`;
+    }
   }
 
   function updateGroupBreakBadge(group) {
@@ -643,7 +668,14 @@
         updateStatusBar();
       });
 
+      const outcomeEl = document.createElement('span');
+      outcomeEl.className = 'instance-outcome';
+      if (!parsed || parsed.type !== 'Custom-Rule') {
+        outcomeEl.classList.add('instance-outcome--hidden');
+      }
+
       row.appendChild(dotEl);
+      row.appendChild(outcomeEl);
       row.appendChild(badge);
       row.appendChild(sparklineEl);
       row.appendChild(toggleInput);
@@ -662,6 +694,7 @@
       });
       row._tag         = tag;
       row._countCell   = countCell;
+      row._outcomeEl   = outcomeEl;
       row._toggleInput = toggleInput;
       row._sparkBars   = sparkBars;
       row._badge       = badge;
@@ -836,6 +869,7 @@
     resolvingVarIds.clear();
     resolvingBuilderIds.clear();
     hitLog.clear();
+    outcomes.clear();
     if (pendingGroup) {
       pendingGroup.groupEl.remove();
       pendingGroup = null;
@@ -988,10 +1022,24 @@
     : null;
 
   chrome.runtime.onMessage.addListener((msg, sender) => {
-    if (!msg || msg.type !== 'li-tag-seen' || !msg.tag) return;
+    if (!msg) return;
     if (inspectedTabId != null && sender.tab && sender.tab.id !== inspectedTabId) return;
-    if (!currentOrigin && msg.origin) setOrigin(msg.origin);
-    handleTagSeen(msg.tag);
+
+    if (msg.type === 'li-tag-seen' && msg.tag) {
+      if (!currentOrigin && msg.origin) setOrigin(msg.origin);
+      handleTagSeen(msg.tag);
+      return;
+    }
+
+    if (msg.type === 'li-rule-outcome' && msg.tag && msg.outcome) {
+      outcomes.set(msg.tag, {
+        outcome: msg.outcome,
+        at: Date.now(),
+        message: msg.message || null
+      });
+      const row = rowEls.get(msg.tag);
+      if (row) syncInstanceRow(row);
+    }
   });
 
   chrome.storage.onChanged.addListener((changes, area) => {
