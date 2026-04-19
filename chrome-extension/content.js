@@ -109,12 +109,31 @@
   window.addEventListener('message', (e) => {
     if (e.source !== window || e.origin !== location.origin) return;
     const data = e.data;
-    if (!data || data.source !== 'li-classifier' || !data.tag) return;
-    try {
-      chrome.runtime.sendMessage(
-        { type: 'li-tag-seen', tag: data.tag, origin: location.origin },
-        () => void chrome.runtime.lastError
-      );
-    } catch (_) { /* runtime may be unavailable during tab teardown */ }
+    if (!data) return;
+
+    if (data.source === 'li-classifier' && data.tag) {
+      try {
+        chrome.runtime.sendMessage(
+          { type: 'li-tag-seen', tag: data.tag, origin: location.origin },
+          () => void chrome.runtime.lastError
+        );
+      } catch (_) { /* runtime may be unavailable during tab teardown */ }
+      return;
+    }
+
+    if (data.source === 'li-rule-outcome' && data.tag && data.outcome) {
+      try {
+        chrome.runtime.sendMessage(
+          {
+            type: 'li-rule-outcome',
+            tag: data.tag,
+            outcome: data.outcome,
+            message: data.message,
+            origin: location.origin
+          },
+          () => void chrome.runtime.lastError
+        );
+      } catch (_) { /* runtime may be unavailable during tab teardown */ }
+    }
   });
 })();
