@@ -40,7 +40,7 @@ function connectToServer() {
         manuallyDisconnected = false;
         clearTimeout(connectionTimeout);
         connectionTimeout = null;
-        updateBadge(true);
+        setStatus('connected');
         startHeartbeat();
         console.log('[Live Injector v2] Connected to VS Code embedded server');
       };
@@ -51,20 +51,21 @@ function connectToServer() {
         stopHeartbeat();
         clearTimeout(connectionTimeout);
         connectionTimeout = null;
-        updateBadge(false);
         console.log(`[Live Injector v2] Disconnected (${event.code})`);
 
         if (!manuallyDisconnected && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttempts++;
           const delay = Math.min(3000 + reconnectAttempts * 2000, 30000);
           console.log(`[Live Injector v2] Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+          setStatus('connecting');
           setTimeout(connectToServer, delay);
+        } else {
+          setStatus('disconnected');
         }
       };
 
       socket.onerror = () => {
         isConnected = false;
-        updateBadge(false);
         clearTimeout(connectionTimeout);
         connectionTimeout = null;
       };
@@ -82,10 +83,12 @@ function connectToServer() {
     } catch (err) {
       console.error('[Live Injector v2] Connection error:', err);
       isConnected = false;
-      updateBadge(false);
       if (!manuallyDisconnected && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         reconnectAttempts++;
+        setStatus('connecting');
         setTimeout(connectToServer, 3000);
+      } else {
+        setStatus('disconnected');
       }
     }
   });
@@ -118,11 +121,126 @@ async function getPort() {
   return result.serverPort || DEFAULT_PORT;
 }
 
-// ── Badge ─────────────────────────────────────────────────────────
+// ── Action icon ───────────────────────────────────────────────────
+// Instead of a text badge, we composite a status dot onto the base icon
+// at runtime. Three states: connected (green), disconnected (red with
+// desaturated base mark), connecting (pulsing amber). Colours echo the
+// popup's --green / --red tokens so the toolbar and popup feel unified.
 
-function updateBadge(connected) {
-  chrome.action.setBadgeText({ text: connected ? '✓' : '✗' });
-  chrome.action.setBadgeBackgroundColor({ color: connected ? '#4CAF50' : '#F44336' });
+const ICON_SIZES = [16, 32, 48, 128];
+const ICON_TOOLBAR_SIZES = [16, 32];
+
+const STATUS_COLORS = {
+  connected:    { dot: '#3BD66F', halo: 'rgba(59, 214, 111, 0.55)' },
+  disconnected: { dot: '#F04A4A', halo: 'rgba(240, 74, 74, 0.50)'  },
+  connecting:   { dot: '#F5B43C', halo: 'rgba(245, 180, 60, 0.55)' },
+};
+
+let baseIcons = null;
+let baseIconsLoading = null;
+let pulseInterval = null;
+
+function loadBaseIcons() {
+  if (baseIcons) { return Promise.resolve(baseIcons); }
+  if (baseIconsLoading) { return baseIconsLoading; }
+
+  baseIconsLoading = Promise.all(
+    ICON_SIZES.map(async size => {
+      const res = await fetch(chrome.runtime.getURL(`icons/icon-${size}.png`));
+      const blob = await res.blob();
+      return [size, await createImageBitmap(blob)];
+    })
+  ).then(entries => {
+    baseIcons = Object.fromEntries(entries);
+    baseIconsLoading = null;
+    return baseIcons;
+  });
+
+  return baseIconsLoading;
+}
+
+function renderIcon(size, state, pulsePhase = 1) {
+  const canvas = new OffscreenCanvas(size, size);
+  const ctx = canvas.getContext('2d');
+
+  if (state === 'disconnected') {
+    ctx.filter = 'grayscale(0.55) brightness(0.78)';
+  }
+  ctx.drawImage(baseIcons[size], 0, 0, size, size);
+  ctx.filter = 'none';
+
+  const { dot, halo } = STATUS_COLORS[state];
+  const r    = Math.max(2, Math.round(size * 0.22));
+  const pad  = Math.max(1, Math.round(size * 0.03));
+  const cx   = size - r - pad;
+  const cy   = size - r - pad;
+  const haloR = r * 2.1;
+
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR);
+  grad.addColorStop(0, halo);
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.globalAlpha = state === 'connecting' ? pulsePhase : 1;
+  ctx.fillStyle = grad;
+  ctx.fillRect(cx - haloR, cy - haloR, haloR * 2, haloR * 2);
+  ctx.globalAlpha = 1;
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fillStyle = dot;
+  ctx.fill();
+  ctx.lineWidth   = Math.max(1, size * 0.05);
+  ctx.strokeStyle = 'rgba(10, 10, 14, 0.75)';
+  ctx.stroke();
+
+  return ctx.getImageData(0, 0, size, size);
+}
+
+async function applyIcon(state, pulsePhase = 1, sizes = ICON_SIZES) {
+  try {
+    await loadBaseIcons();
+    const imageData = {};
+    for (const s of sizes) { imageData[s] = renderIcon(s, state, pulsePhase); }
+    await chrome.action.setIcon({ imageData });
+  } catch (e) {
+    console.warn('[Live Injector v2] Icon render failed:', e);
+  }
+}
+
+async function setActionTitle(state) {
+  let title;
+  if (state === 'connected') {
+    const port = await getPort();
+    title = `Live Injector — Connected · :${port}`;
+  } else if (state === 'connecting') {
+    title = `Live Injector — Reconnecting ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}…`;
+  } else {
+    title = 'Live Injector — Disconnected · click to reconnect';
+  }
+  chrome.action.setTitle({ title });
+}
+
+function stopPulse() {
+  if (pulseInterval) { clearInterval(pulseInterval); pulseInterval = null; }
+}
+
+function startPulse() {
+  stopPulse();
+  let step = 0;
+  const STEPS = 10;
+  pulseInterval = setInterval(() => {
+    step = (step + 1) % STEPS;
+    // Eased sine between 0.45 and 1.0 — a slow breath, not a strobe.
+    const t = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin((step / STEPS) * Math.PI * 2));
+    applyIcon('connecting', t, ICON_TOOLBAR_SIZES);
+  }, 220);
+}
+
+function setStatus(state) {
+  stopPulse();
+  chrome.action.setBadgeText({ text: '' });
+  applyIcon(state);
+  setActionTitle(state);
+  if (state === 'connecting') { startPulse(); }
 }
 
 // ── Messages from popup ───────────────────────────────────────────
@@ -137,6 +255,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       manuallyDisconnected = false;
       reconnectAttempts = 0;
       if (socket) { socket.close(); }
+      setStatus('connecting');
       setTimeout(connectToServer, 300);
       sendResponse({ status: 'reconnecting' });
       break;
@@ -146,7 +265,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       stopHeartbeat();
       if (socket) { socket.close(); socket = null; }
       isConnected = false;
-      updateBadge(false);
+      setStatus('disconnected');
       sendResponse({ status: 'disconnected' });
       break;
 
@@ -254,4 +373,5 @@ function injectCSS(code, filename) {
 
 // ── Init ──────────────────────────────────────────────────────────
 
+setStatus('connecting');
 connectToServer();
