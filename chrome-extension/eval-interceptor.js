@@ -30,15 +30,19 @@
     const n = ++counter;
     const tag = classify(code, fallbackTag, n);
     const isClassified = tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-');
-    if (!isClassified) return code;
+    if (!isClassified) return { code, tag };
     const breakSet = getBreakSet();
     const breakLine = breakSet && breakSet.has(tag) ? 'debugger;\n' : '';
-    return breakLine + code + '\n//# sourceURL=eval-interceptor://' + tag + '.js';
+    return {
+        code: breakLine + code + '\n//# sourceURL=eval-interceptor://' + tag + '.js',
+        tag
+    };
   }
 
   function liEval(code) {
     if (typeof code !== 'string') return _eval.call(this, code);
-    return _eval.call(this, wrapCode(code, 'eval'));
+    const wrapped = wrapCode(code, 'eval');
+    return _eval.call(this, wrapped.code);
   }
 
   // ── Lazy install / uninstall ──────────────────────────────────────
