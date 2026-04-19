@@ -258,7 +258,8 @@
       .group-variation-id {
         font-size: 12px; font-weight: 500;
         color: var(--text); font-variant-numeric: tabular-nums;
-        flex-shrink: 0; white-space: nowrap;
+        min-width: 0; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
       }
       .break-badge {
         display: inline-flex; align-items: center; gap: 3px;
@@ -327,7 +328,7 @@
         display: none;
         align-items: center;
         gap: 4px;
-        margin-left: 8px;
+        flex-shrink: 0;
         padding: 1px 6px;
         font-family: var(--font-mono);
         font-size: 9px;

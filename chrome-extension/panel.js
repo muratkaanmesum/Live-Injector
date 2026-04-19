@@ -256,18 +256,18 @@
     varCell.className = 'group-variation-id';
     varCell.textContent = variationId ? 'variationId: ' + variationId : '—';
 
-    const testingPill = document.createElement('span');
-    testingPill.className = 'testing-pill';
-    testingPill.textContent = 'live';
-    varCell.appendChild(testingPill);
-
     const sepSpan = document.createElement('span');
     sepSpan.className = 'group-name-sep';
     sepSpan.textContent = '|';
 
+    const testingPill = document.createElement('span');
+    testingPill.className = 'testing-pill';
+    testingPill.textContent = 'live';
+
     nameCell.appendChild(builderIdSpan);
     nameCell.appendChild(sepSpan);
     nameCell.appendChild(varCell);
+    nameCell.appendChild(testingPill);
 
     const breakBadgeEl = document.createElement('span');
     breakBadgeEl.className = 'break-badge hidden';
