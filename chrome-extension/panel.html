@@ -361,7 +361,7 @@
       /* ── instance row ───────────────────────────────────────────────── */
       .instance {
         display: grid;
-        grid-template-columns: 8px 74px 44px 1fr;
+        grid-template-columns: 8px 14px 74px 44px 1fr;
         align-items: center; gap: 8px;
         padding: 6px 10px 6px 26px;
         border-bottom: 1px solid var(--border-soft);
@@ -376,6 +376,27 @@
         transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
       }
       .instance.is-breaking .instance-dot { background: var(--accent); box-shadow: 0 0 5px var(--accent-halo); }
+
+      /* ── instance outcome icon ─────────────────────────────────────── */
+      .instance-outcome {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        min-width: 14px;
+        height: 14px;
+        font-size: 12px;
+        line-height: 1;
+        font-weight: 700;
+        color: var(--text-4);
+        user-select: none;
+      }
+      .instance-outcome--hidden {
+        visibility: hidden;
+      }
+      .instance-outcome.is-pass  { color: #3ecf8e; }
+      .instance-outcome.is-fail  { color: #ef4444; }
+      .instance-outcome.is-error { color: #f59e0b; }
 
       /* ── type badge ─────────────────────────────────────────────────── */
       .row-badge {
