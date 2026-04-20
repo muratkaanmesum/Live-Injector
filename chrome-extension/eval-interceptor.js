@@ -14,7 +14,9 @@
   let installed = false;
 
   function isEnabled() {
-    return document.documentElement.dataset.liEvalEnabled === 'true';
+    // Install by default; only uninstall if content.js explicitly wrote 'false'.
+    // Dataset is undefined at document_start — installing now wins the race vs ins.js.
+    return document.documentElement.dataset.liEvalEnabled !== 'false';
   }
 
   function classify(code, fallback, n) {

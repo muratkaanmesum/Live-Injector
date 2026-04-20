@@ -13,8 +13,10 @@
   let installed = false;
 
   function getConfig() {
+    // Install by default; only uninstall if content.js explicitly wrote 'false'.
+    // Dataset is undefined at document_start — installing now wins the race vs ins.js.
     const ds = document.documentElement.dataset;
-    return { enabled: ds.liScriptEnabled === 'true' };
+    return { enabled: ds.liScriptEnabled !== 'false' };
   }
 
   function getBreakSet() {
