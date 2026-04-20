@@ -8,6 +8,11 @@
   const emptyEl       = document.getElementById('empty');
   const noResultsEl   = document.getElementById('no-results');
   const rowsEl        = document.getElementById('rows');
+  const toastEl         = document.getElementById('toast');
+  const toastMsgEl      = toastEl && toastEl.querySelector('.toast-msg');
+  const toastIconError  = document.getElementById('toast-icon-error');
+  const toastIconInfo   = document.getElementById('toast-icon-info');
+  let   toastTimer      = 0;
 
   let currentOrigin = null;
   let breakSet = new Set();
@@ -21,6 +26,29 @@
   let localWriteInFlight = false;
   let totalHits = 0;
   const hitLog = new Map(); // tag → number[] (timestamps of last 8 hits)
+
+  function showToast(message, type /* 'error' | 'info' */) {
+    if (!toastEl || !toastMsgEl) return;
+    if (type !== 'error' && type !== 'info') type = 'info';
+
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = 0;
+    }
+
+    toastMsgEl.textContent = String(message == null ? '' : message);
+    toastEl.dataset.type = type;
+
+    if (toastIconError) toastIconError.style.display = (type === 'error') ? '' : 'none';
+    if (toastIconInfo)  toastIconInfo.style.display  = (type === 'info')  ? '' : 'none';
+
+    toastEl.classList.add('is-visible');
+
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove('is-visible');
+      toastTimer = 0;
+    }, 1800);
+  }
 
   // New state for builder-keyed grouping
   const builderMetaCache    = new Map(); // builderId → {builderId, variationId}
