@@ -1078,10 +1078,13 @@
       if (ok) {
         sourcedRuleIds.add(ruleId);
         rowEls.forEach(syncSourceBtn);
-      } else if (row._sourceBtn) {
-        row._sourceBtn.classList.add('is-error');
-        row._sourceBtn.title = 'Could not annotate — rule missing or Insider.rules not ready';
-        setTimeout(() => row._sourceBtn && row._sourceBtn.classList.remove('is-error'), 1500);
+      } else {
+        showToast("Source couldn't be found", 'error');
+        if (row._sourceBtn) {
+          row._sourceBtn.classList.add('is-error');
+          row._sourceBtn.title = 'Could not annotate — rule missing or Insider.rules not ready';
+          setTimeout(() => row._sourceBtn && row._sourceBtn.classList.remove('is-error'), 1500);
+        }
       }
     });
   }
