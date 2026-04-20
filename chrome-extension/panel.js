@@ -83,8 +83,12 @@
     return m ? m[1] : tag;
   }
 
+  // Campaign tags are just Campaign-<variationId> (variationId is stable, so
+  // re-evals land on the same row). Custom-Rule tags carry a ruleId suffix
+  // (Custom-Rule-<builderId>-<ruleId>) — same rule fired on re-init collapses
+  // onto its existing row, different rules under the same campaign stay apart.
   function parseTag(tag) {
-    const m = tag.match(/^(Campaign|Custom-Rule)-(\d+)-\d+$/);
+    const m = tag.match(/^(Campaign|Custom-Rule)-(\d+)(?:-\d+)?$/);
     if (!m) return null;
     return { type: m[1], id: m[2] };
   }
@@ -452,6 +456,8 @@
     const heights = sparklineHeights(row._tag);
     row._sparkBars.forEach((bar, i) => { bar.style.height = heights[i] + '%'; });
 
+    syncSourceBtn(row);
+
     const el = row._outcomeEl;
     if (!el) return;
     el.classList.remove('is-pass', 'is-fail', 'is-error');
@@ -679,6 +685,22 @@
       row.appendChild(badge);
       row.appendChild(sparklineEl);
       row.appendChild(toggleInput);
+
+      // "src" button: only for rule rows known to have come from Insider.rules.call
+      // (i.e. have a real rule id available). Clicking re-evals the test in-page
+      // with a //# sourceURL comment so it shows up in DevTools Sources.
+      const sourceBtn = document.createElement('button');
+      sourceBtn.className = 'source-btn hidden';
+      sourceBtn.type      = 'button';
+      sourceBtn.textContent = 'src';
+      sourceBtn.title = 'Add sourceURL for this rule';
+      sourceBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        annotateRuleFromRow(row);
+      });
+      row.appendChild(sourceBtn);
+      row._sourceBtn = sourceBtn;
+
       group.bodyEl.appendChild(row);
 
       row.tabIndex     = 0;
@@ -686,7 +708,16 @@
       row.addEventListener('click', (e) => {
         if (e.target === toggleInput) return;
         chrome.devtools.inspectedWindow.getResources((resources) => {
-          const match = resources.find(r => r.url.includes(tag));
+          let match = resources.find(r => r.url.includes(tag));
+          // Rule-call rows: the annotated sourceURL drops the per-call counter
+          // (rules-interceptor://Custom-Rule-<builderId>.js) — try that shape too.
+          if (!match && ruleIdByTag.has(tag)) {
+            const parsed = parseTag(tag);
+            if (parsed) {
+              const url = 'rules-interceptor://Custom-Rule-' + parsed.id + '.js';
+              match = resources.find(r => r.url === url);
+            }
+          }
           if (match) {
             chrome.devtools.panels.openResource(match.url, 0, () => {});
           }
@@ -870,7 +901,9 @@
     resolvingBuilderIds.clear();
     hitLog.clear();
     outcomes.clear();
-    ruleCallTagCounters.clear();
+    ruleIdByTag.clear();
+    sourcedRuleIds.clear();
+    evalSeenBuilders.clear();
     if (pendingGroup) {
       pendingGroup.groupEl.remove();
       pendingGroup = null;
@@ -978,17 +1011,52 @@
 
   // ── Rule-call → Tag bridge ───────────────────────────────────────
   // Route Insider.rules.call(id, builderId) events into the Tags view:
-  // synthesize a Custom-Rule-<builderId>-<n> tag so rows land under the
-  // correct campaign drawer. Calls with no builderId are dropped — they
-  // come from developer-initiated evaluations and have no campaign context.
-  const ruleCallTagCounters = new Map(); // builderId → counter
+  // synthesize a Custom-Rule-<builderId>-<ruleId> tag so one row per rule
+  // lands under the correct campaign drawer. Re-triggers of the same rule
+  // increment the existing row's hit count instead of appending new rows.
+  // Calls without builderId or id are dropped.
+  const ruleIdByTag    = new Map(); // tag → rule id (for source-URL button)
+  const sourcedRuleIds = new Set(); // rule ids already annotated with sourceURL
+  // builderIds already covered by the eval interceptor's Custom-Rule-<bid>-*
+  // tag. When Insider.rules.call runs, fns.eval executes inside it and the
+  // eval interceptor emits first, so by the time routeRuleCall fires the
+  // set is populated — we drop the rules event to avoid a duplicate row.
+  const evalSeenBuilders = new Set();
 
   function routeRuleCall(msg) {
-    if (!msg.builderId) return;
+    if (!msg.builderId || msg.id == null) return;
     const builderId = String(msg.builderId);
-    const next = (ruleCallTagCounters.get(builderId) || 0) + 1;
-    ruleCallTagCounters.set(builderId, next);
-    handleTagSeen('Custom-Rule-' + builderId + '-' + next);
+    if (evalSeenBuilders.has(builderId)) return;
+    const ruleId    = String(msg.id);
+    const tag = 'Custom-Rule-' + builderId + '-' + ruleId;
+    ruleIdByTag.set(tag, ruleId);
+    handleTagSeen(tag);
+  }
+
+  function syncSourceBtn(row) {
+    if (!row._sourceBtn) return;
+    const ruleId = ruleIdByTag.get(row._tag);
+    const hide = !ruleId || sourcedRuleIds.has(ruleId);
+    row._sourceBtn.classList.toggle('hidden', hide);
+  }
+
+  function annotateRuleFromRow(row) {
+    const ruleId = ruleIdByTag.get(row._tag);
+    const parsed = parseTag(row._tag);
+    if (!ruleId || !parsed) return;
+    const builderId = parsed.id;
+    const expr = '(function(){try{return !!(window.__liAnnotateRule&&window.__liAnnotateRule('
+      + JSON.stringify(ruleId) + ',' + JSON.stringify(builderId) + '));}catch(e){return false;}})()';
+    evalOnPage(expr).then((ok) => {
+      if (ok) {
+        sourcedRuleIds.add(ruleId);
+        rowEls.forEach(syncSourceBtn);
+      } else if (row._sourceBtn) {
+        row._sourceBtn.classList.add('is-error');
+        row._sourceBtn.title = 'Could not annotate — rule missing or Insider.rules not ready';
+        setTimeout(() => row._sourceBtn && row._sourceBtn.classList.remove('is-error'), 1500);
+      }
+    });
   }
 
   // ── Keyboard shortcuts ───────────────────────────────────────────
@@ -1057,6 +1125,10 @@
     if (!msg) return;
     if (msg.type === 'li-tag-seen' && msg.tag) {
       if (!currentOrigin && msg.origin) setOrigin(msg.origin);
+      const parsedSeen = parseTag(msg.tag);
+      if (parsedSeen && parsedSeen.type === 'Custom-Rule') {
+        evalSeenBuilders.add(parsedSeen.id);
+      }
       handleTagSeen(msg.tag);
       return;
     }

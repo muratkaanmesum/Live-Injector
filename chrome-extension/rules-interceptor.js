@@ -75,6 +75,34 @@
     return true;
   }
 
+  // On-demand re-eval of a rule's test function with a //# sourceURL comment
+  // so DevTools Sources shows it under rules-interceptor://Custom-Rule-<id>.js
+  // — mirrors eval/script interceptors' tagging. Only triggered when the user
+  // clicks the "src" button on a rule row in the panel; we don't re-eval
+  // proactively because closures in test bodies would break silently.
+  function annotateRuleTest(id, builderId) {
+    try {
+      const R = window.Insider && window.Insider.rules;
+      if (!R) return false;
+      const entry = R[id];
+      if (!entry || typeof entry.test !== 'function') return false;
+      if (entry.test.__liSourced) return true;
+      const src = Function.prototype.toString.call(entry.test);
+      const tagId = builderId != null ? builderId : id;
+      const reEvaled = (0, eval)(
+        '(' + src + ')\n//# sourceURL=rules-interceptor://Custom-Rule-' + tagId + '.js'
+      );
+      if (typeof reEvaled !== 'function') return false;
+      reEvaled.__liSourced = true;
+      entry.test = reEvaled;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  window.__liAnnotateRule = annotateRuleTest;
+
   function roundMs(t0) {
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     return Math.round((now - t0) * 100) / 100;

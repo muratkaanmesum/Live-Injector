@@ -2,6 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Finishing a task
+
+Always end with an explicit **"To verify"** section listing the reload + repro steps. The user won't always know which bits need refreshing:
+
+- **Chrome extension changes** (`chrome-extension/`): reload via `chrome://extensions` → click the refresh icon on the Live Injector card, then reload the page under test.
+- **Panel-only changes** (DevTools panel JS/HTML/CSS): close and reopen the DevTools panel; a full extension reload is only needed when `manifest.json`, service worker, or content scripts changed.
+- **VS Code extension changes** (`vscode-extension/`): `npm run compile` (or watch) and reload the Extension Development Host window (Cmd+R).
+- Name the specific scenario to reproduce (e.g. "trigger an Insider re-init and confirm the existing rule row's count increments instead of a new row appearing").
+
 ## Project Overview
 
 Two-component system: a VS Code extension (with an embedded WebSocket server) and a Chrome extension. On file save in VS Code, code is broadcast over WebSocket to the Chrome extension, which executes it in the active browser tab.

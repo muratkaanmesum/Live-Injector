@@ -362,7 +362,7 @@
       /* ── instance row ───────────────────────────────────────────────── */
       .instance {
         display: grid;
-        grid-template-columns: 8px 14px 74px 44px 1fr;
+        grid-template-columns: 8px 14px 74px 44px 1fr auto;
         align-items: center; gap: 8px;
         padding: 6px 10px 6px 26px;
         border-bottom: 1px solid var(--border-soft);
@@ -462,6 +462,33 @@
         width: 4px; height: 4px; border-radius: 50%; background: oklch(1 0 0 / 0.75);
       }
       .bp:disabled { opacity: 0.35; cursor: not-allowed; }
+
+      /* ── add-sourceURL button ───────────────────────────────────────── */
+      .source-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        height: 16px; padding: 0 6px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text-3);
+        border-radius: 3px;
+        font-family: var(--font-mono);
+        font-size: 9px; font-weight: 600;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        cursor: pointer;
+        transition: border-color var(--dur) var(--ease),
+                    color        var(--dur) var(--ease),
+                    background   var(--dur) var(--ease);
+      }
+      .source-btn:hover {
+        border-color: var(--accent-rule);
+        color: var(--accent-rule);
+        background: rgba(94,196,182,0.08);
+      }
+      .source-btn.is-error {
+        border-color: #ef4444;
+        color: #ef4444;
+      }
+      .source-btn.hidden { display: none; }
 
       /* ── row migration animations ───────────────────────────────────── */
       @keyframes row-exit {
