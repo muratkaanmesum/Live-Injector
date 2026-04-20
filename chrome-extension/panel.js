@@ -740,12 +740,14 @@
           if (!match) {
             console.warn('[LiveInjector] no resource URL contains tag:', tag,
               '— known URLs:', resources.map(r => r.url));
+            showToast("Source couldn't be found", 'error');
             return;
           }
           chrome.devtools.panels.openResource(match.url, 0, () => {
             const err = chrome.runtime && chrome.runtime.lastError;
             if (err) {
               console.warn('[LiveInjector] openResource failed for', match.url, '—', err.message);
+              showToast("Source couldn't be found", 'error');
             }
           });
         });
