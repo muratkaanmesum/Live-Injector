@@ -243,9 +243,48 @@ function setStatus(state) {
   if (state === 'connecting') { startPulse(); }
 }
 
-// ── Messages from popup ───────────────────────────────────────────
+// ── DevTools panel ports (SW → panel relay) ──────────────────────
+// chrome.runtime.sendMessage broadcasts don't reliably reach DevTools extension
+// pages in MV3. Panels open a long-lived Port named 'li-devtools-<tabId>' and
+// we forward content-script messages for that tab through the port.
+
+const panelPorts = new Map(); // tabId → Port
+
+chrome.runtime.onConnect.addListener((port) => {
+  const m = /^li-devtools-(\d+)$/.exec(port.name || '');
+  if (!m) return;
+  const tabId = Number(m[1]);
+  panelPorts.set(tabId, port);
+  port.onDisconnect.addListener(() => {
+    if (panelPorts.get(tabId) === port) panelPorts.delete(tabId);
+  });
+});
+
+function relayToPanel(tabId, msg) {
+  const port = tabId != null ? panelPorts.get(tabId) : null;
+  if (!port) return;
+  try { port.postMessage(msg); } catch (_) { panelPorts.delete(tabId); }
+}
+
+// ── Messages from content scripts / popup ─────────────────────────
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message && message.type === 'li-tag-seen') {
+    const tabId = _sender && _sender.tab && _sender.tab.id;
+    relayToPanel(tabId, { type: 'li-tag-seen', tag: message.tag, origin: message.origin });
+    return;
+  }
+  if (message && message.type === 'li-rule-outcome') {
+    const tabId = _sender && _sender.tab && _sender.tab.id;
+    relayToPanel(tabId, {
+      type: 'li-rule-outcome',
+      tag: message.tag,
+      outcome: message.outcome,
+      message: message.message,
+      origin: message.origin
+    });
+    return;
+  }
   switch (message.type) {
     case 'get-status':
       sendResponse({ connected: isConnected, reconnectAttempts, maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS });
@@ -278,7 +317,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
       break;
   }
-  return true;
 });
 
 // ── Code execution ────────────────────────────────────────────────

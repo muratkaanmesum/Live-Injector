@@ -105,7 +105,7 @@
     }
   });
 
-  // ── Tag-seen bridge (MAIN world → DevTools panel) ────────────────
+  // ── Tag-seen bridge (MAIN world → SW → DevTools panel port) ──────
   window.addEventListener('message', (e) => {
     if (e.source !== window || e.origin !== location.origin) return;
     const data = e.data;

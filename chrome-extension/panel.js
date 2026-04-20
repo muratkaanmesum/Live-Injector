@@ -1021,16 +1021,15 @@
     ? chrome.devtools.inspectedWindow.tabId
     : null;
 
-  chrome.runtime.onMessage.addListener((msg, sender) => {
+  // Long-lived port to SW — chrome.runtime.sendMessage broadcasts don't reach
+  // devtools pages in MV3, so SW forwards tag/outcome events through this port.
+  function handlePortMessage(msg) {
     if (!msg) return;
-    if (inspectedTabId != null && sender.tab && sender.tab.id !== inspectedTabId) return;
-
     if (msg.type === 'li-tag-seen' && msg.tag) {
       if (!currentOrigin && msg.origin) setOrigin(msg.origin);
       handleTagSeen(msg.tag);
       return;
     }
-
     if (msg.type === 'li-rule-outcome' && msg.tag && msg.outcome) {
       outcomes.set(msg.tag, {
         outcome: msg.outcome,
@@ -1040,7 +1039,18 @@
       const row = rowEls.get(msg.tag);
       if (row) syncInstanceRow(row);
     }
-  });
+  }
+
+  function openPanelPort() {
+    if (inspectedTabId == null) return;
+    const port = chrome.runtime.connect({ name: 'li-devtools-' + inspectedTabId });
+    port.onMessage.addListener(handlePortMessage);
+    port.onDisconnect.addListener(() => {
+      // SW idle-restart closes the port; reopen so we don't miss future tags.
+      setTimeout(openPanelPort, 100);
+    });
+  }
+  openPanelPort();
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !('liBreakTags' in changes)) return;
