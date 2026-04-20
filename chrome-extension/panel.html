@@ -511,6 +511,69 @@
       }
       #status-breaks { transition: color var(--dur) var(--ease); }
       #status-breaks.is-active { color: var(--accent); }
+
+      /* ── view switcher (Tags / Rules) ───────────────────────────── */
+      .view-switch {
+        display: inline-flex; gap: 2px;
+        padding: 2px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .view-switch button {
+        padding: 2px 9px; font-size: 11px; color: var(--text-3);
+        border-radius: 4px;
+        transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+      }
+      .view-switch button.is-active {
+        background: var(--bg); color: var(--text);
+        box-shadow: 0 1px 2px oklch(0 0 0 / 0.3);
+      }
+      .view-switch button:hover:not(.is-active) { color: var(--text-2); }
+
+      /* ── Rules view ─────────────────────────────────────────────── */
+      .scroll-rules { overflow-y: auto; padding: 8px 8px 32px; }
+      .scroll-rules::-webkit-scrollbar { width: 6px; }
+      .scroll-rules::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+      #rules-empty { color: var(--text-3); padding: 28px 0; text-align: center; font-size: 12px; }
+      .rules-table {
+        display: grid;
+        grid-template-columns: 80px 80px 56px 70px 52px 1fr;
+        gap: 0;
+        font-family: var(--font-mono); font-size: 11.5px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); overflow: hidden;
+      }
+      .rules-table .th {
+        padding: 6px 10px; color: var(--text-4);
+        font-size: 9.5px; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.08em;
+        background: var(--bg-sunk);
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      .rules-table .td {
+        padding: 6px 10px; color: var(--text-2);
+        border-bottom: 1px solid var(--hairline);
+        font-variant-numeric: tabular-nums;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .rules-table .td.ruleid { color: var(--text); font-weight: 600; }
+      .rules-table .td.result-true  { color: #3ecf8e; }
+      .rules-table .td.result-false { color: var(--text-3); }
+      .rules-table .td.result-error { color: #f59e0b; }
+      .rules-table .td.builder-empty { color: var(--text-4); }
+      .rules-table .td.last  { font-family: var(--font-mono); color: var(--text-3); font-size: 10.5px; }
+      @keyframes rule-hit-flash {
+        0%   { background: var(--accent-soft); }
+        100% { background: transparent; }
+      }
+      .rules-table .td.just-hit {
+        animation: rule-hit-flash 700ms ease-out;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .rules-table .td.just-hit { animation: none; }
+      }
     </style>
   </head>
   <body>
@@ -519,7 +582,10 @@
         <span class="brand-mark"></span>
         <span class="brand-title">Interceptor</span>
         <span class="brand-sep">/</span>
-        <span class="brand-sub">Tags</span>
+        <div class="view-switch" id="view-switch" role="tablist">
+          <button data-view="tags" class="is-active" role="tab" aria-selected="true">Tags</button>
+          <button data-view="rules" role="tab" aria-selected="false">Rules</button>
+        </div>
         <div class="titlebar-spacer"></div>
         <span class="origin-chip is-unknown" id="origin-chip">
           <span class="origin-dot"></span>
@@ -557,6 +623,12 @@
           </svg>
           Script
         </button>
+        <button class="toolbar-chip is-active" id="rules-intercept-toggle" title="Toggle Insider.rules.call() interceptor" aria-pressed="true">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+          </svg>
+          Rules
+        </button>
         <button class="toolbar-btn" id="collapse-all-btn" title="Collapse / expand all">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="17 8 12 3 7 8"/><polyline points="17 16 12 21 7 16"/>
@@ -571,10 +643,22 @@
         </button>
       </div>
 
-      <div class="scroll">
+      <div class="scroll" id="view-tags">
         <div id="empty">No classified tags yet. Reload the page to capture.</div>
         <div id="no-results" class="hidden">No tags match the current filter.</div>
         <div id="rows"></div>
+      </div>
+
+      <div class="scroll-rules hidden" id="view-rules">
+        <div id="rules-empty">No rule calls captured yet. Interact with the page to trigger <code>Insider.rules.call()</code>.</div>
+        <div class="rules-table hidden" id="rules-table">
+          <div class="th">Rule</div>
+          <div class="th">Builder</div>
+          <div class="th">Last</div>
+          <div class="th">Avg ms</div>
+          <div class="th">Calls</div>
+          <div class="th">Source</div>
+        </div>
       </div>
 
       <div class="statusbar">

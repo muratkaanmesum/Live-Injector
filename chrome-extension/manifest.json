@@ -24,7 +24,7 @@
     },
     {
       "matches": ["<all_urls>"],
-      "js": ["classifier.js", "eval-interceptor.js", "script-interceptor.js"],
+      "js": ["classifier.js", "eval-interceptor.js", "script-interceptor.js", "rules-interceptor.js"],
       "run_at": "document_start",
       "all_frames": true,
       "world": "MAIN"

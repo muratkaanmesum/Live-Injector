@@ -65,16 +65,23 @@
     document.documentElement.dataset.liScriptEnabled = enabled ? 'true' : 'false';
   }
 
+  function applyRulesConfig(enabled) {
+    document.documentElement.dataset.liRulesEnabled = enabled ? 'true' : 'false';
+  }
+
   chrome.storage.local.get(
-    ['evalInterceptorEnabled', 'scriptInterceptorEnabled'],
+    ['evalInterceptorEnabled', 'scriptInterceptorEnabled', 'rulesInterceptorEnabled'],
     function (result) {
       const evalOn   = result.evalInterceptorEnabled   ?? true;
       const scriptOn = result.scriptInterceptorEnabled ?? true;
+      const rulesOn  = result.rulesInterceptorEnabled  ?? true;
       applyEvalConfig(evalOn);
       applyScriptConfig(scriptOn);
+      applyRulesConfig(rulesOn);
       const toSet = {};
       if (result.evalInterceptorEnabled   === undefined) toSet.evalInterceptorEnabled   = true;
       if (result.scriptInterceptorEnabled === undefined) toSet.scriptInterceptorEnabled = true;
+      if (result.rulesInterceptorEnabled  === undefined) toSet.rulesInterceptorEnabled  = true;
       if (Object.keys(toSet).length) chrome.storage.local.set(toSet);
     }
   );
@@ -99,6 +106,9 @@
     }
     if ('scriptInterceptorEnabled' in changes) {
       applyScriptConfig(changes.scriptInterceptorEnabled.newValue ?? true);
+    }
+    if ('rulesInterceptorEnabled' in changes) {
+      applyRulesConfig(changes.rulesInterceptorEnabled.newValue ?? true);
     }
     if ('liBreakTags' in changes) {
       applyBreakSet(changes.liBreakTags.newValue || {});
@@ -129,6 +139,26 @@
             tag: data.tag,
             outcome: data.outcome,
             message: data.message,
+            origin: location.origin
+          },
+          () => void chrome.runtime.lastError
+        );
+      } catch (_) { /* runtime may be unavailable during tab teardown */ }
+      return;
+    }
+
+    if (data.source === 'li-rule-call' && data.id != null) {
+      try {
+        chrome.runtime.sendMessage(
+          {
+            type: 'li-rule-call',
+            id: data.id,
+            builderId: data.builderId,
+            ok: data.ok,
+            result: data.result,
+            durationMs: data.durationMs,
+            error: data.error,
+            ts: data.ts,
             origin: location.origin
           },
           () => void chrome.runtime.lastError

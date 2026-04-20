@@ -285,6 +285,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     });
     return;
   }
+  if (message && message.type === 'li-rule-call') {
+    const tabId = _sender && _sender.tab && _sender.tab.id;
+    relayToPanel(tabId, {
+      type: 'li-rule-call',
+      id: message.id,
+      builderId: message.builderId,
+      ok: message.ok,
+      result: message.result,
+      durationMs: message.durationMs,
+      error: message.error,
+      ts: message.ts,
+      origin: message.origin
+    });
+    return;
+  }
   switch (message.type) {
     case 'get-status':
       sendResponse({ connected: isConnected, reconnectAttempts, maxReconnectAttempts: MAX_RECONNECT_ATTEMPTS });

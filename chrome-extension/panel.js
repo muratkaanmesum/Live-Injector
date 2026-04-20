@@ -928,16 +928,21 @@
 
   const evalInterceptBtn   = document.getElementById('eval-intercept-toggle');
   const scriptInterceptBtn = document.getElementById('script-intercept-toggle');
+  const rulesInterceptBtn  = document.getElementById('rules-intercept-toggle');
 
   function setChipState(btn, active) {
     btn.classList.toggle('is-active', active);
     btn.setAttribute('aria-pressed', String(active));
   }
 
-  chrome.storage.local.get(['evalInterceptorEnabled', 'scriptInterceptorEnabled'], (result) => {
-    setChipState(evalInterceptBtn,   result.evalInterceptorEnabled   ?? true);
-    setChipState(scriptInterceptBtn, result.scriptInterceptorEnabled ?? true);
-  });
+  chrome.storage.local.get(
+    ['evalInterceptorEnabled', 'scriptInterceptorEnabled', 'rulesInterceptorEnabled'],
+    (result) => {
+      setChipState(evalInterceptBtn,   result.evalInterceptorEnabled   ?? true);
+      setChipState(scriptInterceptBtn, result.scriptInterceptorEnabled ?? true);
+      setChipState(rulesInterceptBtn,  result.rulesInterceptorEnabled  ?? true);
+    }
+  );
 
   evalInterceptBtn.addEventListener('click', () => {
     const next = !evalInterceptBtn.classList.contains('is-active');
@@ -951,6 +956,12 @@
     chrome.storage.local.set({ scriptInterceptorEnabled: next });
   });
 
+  rulesInterceptBtn.addEventListener('click', () => {
+    const next = !rulesInterceptBtn.classList.contains('is-active');
+    setChipState(rulesInterceptBtn, next);
+    chrome.storage.local.set({ rulesInterceptorEnabled: next });
+  });
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     if ('evalInterceptorEnabled' in changes) {
@@ -959,7 +970,168 @@
     if ('scriptInterceptorEnabled' in changes) {
       setChipState(scriptInterceptBtn, changes.scriptInterceptorEnabled.newValue ?? true);
     }
+    if ('rulesInterceptorEnabled' in changes) {
+      setChipState(rulesInterceptBtn, changes.rulesInterceptorEnabled.newValue ?? true);
+    }
   });
+
+  // ── View switcher (Tags / Rules) ─────────────────────────────────
+
+  const viewTagsEl   = document.getElementById('view-tags');
+  const viewRulesEl  = document.getElementById('view-rules');
+  const viewSwitchEl = document.getElementById('view-switch');
+
+  function setView(view) {
+    viewTagsEl.classList.toggle('hidden', view !== 'tags');
+    viewRulesEl.classList.toggle('hidden', view !== 'rules');
+    viewSwitchEl.querySelectorAll('button').forEach((b) => {
+      const active = b.dataset.view === view;
+      b.classList.toggle('is-active', active);
+      b.setAttribute('aria-selected', String(active));
+    });
+  }
+
+  viewSwitchEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-view]');
+    if (!btn) return;
+    setView(btn.dataset.view);
+  });
+
+  // ── Rule-call stream (Rules view) ────────────────────────────────
+
+  const rulesEmptyEl = document.getElementById('rules-empty');
+  const rulesTableEl = document.getElementById('rules-table');
+  // Key = `${id}|${builderId || ''}` — same rule called from different campaigns
+  // is surfaced as separate rows so builder context is preserved.
+  const ruleAggs = new Map(); // key -> { id, builderId, count, totalMs, lastResult, lastError, lastTs, lastSrc, row }
+  const RULE_SRC_MAX = 160;
+
+  function ruleKey(id, builderId) {
+    return id + '|' + (builderId || '');
+  }
+
+  function recordRuleCall(msg) {
+    const key = ruleKey(msg.id, msg.builderId);
+    let agg = ruleAggs.get(key);
+    if (!agg) {
+      agg = {
+        id: msg.id,
+        builderId: msg.builderId || null,
+        count: 0,
+        totalMs: 0,
+        lastResult: null,
+        lastError: null,
+        lastTs: 0,
+        lastSrc: null,
+        row: null
+      };
+      ruleAggs.set(key, agg);
+    }
+    agg.count += 1;
+    agg.totalMs += (typeof msg.durationMs === 'number' ? msg.durationMs : 0);
+    agg.lastResult = msg.ok ? msg.result : null;
+    agg.lastError = msg.ok ? null : msg.error;
+    agg.lastTs = msg.ts || Date.now();
+    if (agg.lastSrc == null) resolveRuleSource(agg);
+    renderRuleRow(agg);
+    if (rulesTableEl.classList.contains('hidden')) {
+      rulesTableEl.classList.remove('hidden');
+      rulesEmptyEl.classList.add('hidden');
+    }
+  }
+
+  function resolveRuleSource(agg) {
+    // One-shot: ask the page for Insider.rules.getRuleContent(id) and cache it.
+    evalOnPage(
+      'String(Insider && Insider.rules && Insider.rules.getRuleContent && Insider.rules.getRuleContent(' +
+      JSON.stringify(agg.id) + ') || "")'
+    ).then((src) => {
+      if (typeof src !== 'string' || !src) return;
+      const snippet = src.replace(/\s+/g, ' ').trim().slice(0, RULE_SRC_MAX);
+      agg.lastSrc = snippet;
+      if (agg.row) agg.row.srcEl.textContent = snippet;
+    });
+  }
+
+  function formatResult(agg) {
+    if (agg.lastError) return { text: 'error', cls: 'result-error', title: agg.lastError };
+    if (agg.lastResult === true)  return { text: 'true',  cls: 'result-true',  title: '' };
+    if (agg.lastResult === false) return { text: 'false', cls: 'result-false', title: '' };
+    if (agg.lastResult == null)   return { text: '—',     cls: 'result-false', title: '' };
+    return { text: String(agg.lastResult), cls: 'result-false', title: '' };
+  }
+
+  function renderRuleRow(agg) {
+    if (!agg.row) {
+      const ruleTd    = document.createElement('div'); ruleTd.className = 'td ruleid';
+      const builderTd = document.createElement('div'); builderTd.className = 'td';
+      const resultTd  = document.createElement('div'); resultTd.className = 'td';
+      const avgTd     = document.createElement('div'); avgTd.className = 'td';
+      const countTd   = document.createElement('div'); countTd.className = 'td';
+      const srcTd     = document.createElement('div'); srcTd.className = 'td last';
+
+      ruleTd.textContent = '#' + agg.id;
+      rulesTableEl.appendChild(ruleTd);
+      rulesTableEl.appendChild(builderTd);
+      rulesTableEl.appendChild(resultTd);
+      rulesTableEl.appendChild(avgTd);
+      rulesTableEl.appendChild(countTd);
+      rulesTableEl.appendChild(srcTd);
+
+      agg.row = {
+        ruleEl: ruleTd,
+        builderEl: builderTd,
+        resultEl: resultTd,
+        avgEl: avgTd,
+        countEl: countTd,
+        srcEl: srcTd
+      };
+    }
+
+    const r = agg.row;
+    if (agg.builderId) {
+      r.builderEl.textContent = agg.builderId;
+      r.builderEl.classList.remove('builder-empty');
+    } else {
+      r.builderEl.textContent = '—';
+      r.builderEl.classList.add('builder-empty');
+    }
+
+    const res = formatResult(agg);
+    r.resultEl.className = 'td ' + res.cls;
+    r.resultEl.textContent = res.text;
+    if (res.title) r.resultEl.title = res.title;
+
+    const avg = agg.count > 0 ? (agg.totalMs / agg.count) : 0;
+    r.avgEl.textContent = avg.toFixed(2);
+    r.countEl.textContent = String(agg.count);
+    if (agg.lastSrc) r.srcEl.textContent = agg.lastSrc;
+
+    // Pulse the just-hit row briefly so you can spot recent activity.
+    // All six <div>s share the same row visually; toggle a class on the container
+    // using a data attribute + CSS is overkill — just tick each cell.
+    [r.ruleEl, r.builderEl, r.resultEl, r.avgEl, r.countEl, r.srcEl].forEach((el) => {
+      el.classList.remove('just-hit');
+      // Force reflow so the animation restarts on repeat hits
+      void el.offsetWidth;
+      el.classList.add('just-hit');
+    });
+  }
+
+  function clearRuleStream() {
+    ruleAggs.clear();
+    // Remove all non-header children
+    const children = Array.from(rulesTableEl.children);
+    children.forEach((c) => {
+      if (!c.classList.contains('th')) rulesTableEl.removeChild(c);
+    });
+    rulesTableEl.classList.add('hidden');
+    rulesEmptyEl.classList.remove('hidden');
+  }
+
+  if (chrome.devtools && chrome.devtools.network) {
+    chrome.devtools.network.onNavigated.addListener(clearRuleStream);
+  }
 
   // ── Keyboard shortcuts ───────────────────────────────────────────
 
@@ -1038,6 +1210,11 @@
       });
       const row = rowEls.get(msg.tag);
       if (row) syncInstanceRow(row);
+      return;
+    }
+    if (msg.type === 'li-rule-call' && msg.id != null) {
+      if (!currentOrigin && msg.origin) setOrigin(msg.origin);
+      recordRuleCall(msg);
     }
   }
 
