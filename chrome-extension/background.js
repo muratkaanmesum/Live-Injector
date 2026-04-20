@@ -285,6 +285,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     });
     return;
   }
+  if (message && message.type === 'li-request-replay' && message.tabId != null) {
+    // Panel opened mid-session — ask the content script in that tab to
+    // re-emit its buffered events through the normal relay path.
+    try {
+      chrome.tabs.sendMessage(
+        message.tabId,
+        { type: 'li-replay-request' },
+        () => void chrome.runtime.lastError
+      );
+    } catch (_) { /* tab may be gone */ }
+    return;
+  }
   if (message && message.type === 'li-rule-call') {
     const tabId = _sender && _sender.tab && _sender.tab.id;
     relayToPanel(tabId, {

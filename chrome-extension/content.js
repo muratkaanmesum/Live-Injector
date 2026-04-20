@@ -47,9 +47,33 @@
     setTimeout(() => { host.remove(); }, 2500);
   }
 
+  // ── Event history (for DevTools panel late-open replay) ─────────
+  // Content script is the only long-lived per-frame actor, so we buffer
+  // classified events here. When the panel opens mid-session it asks for
+  // a replay and we re-emit every buffered event through the same path as
+  // live ones — the SW relays them to the panel port unchanged.
+  const HISTORY_CAP = 500;
+  const history = [];
+
+  function recordAndForward(payload) {
+    if (history.length >= HISTORY_CAP) history.shift();
+    history.push(payload);
+    try {
+      chrome.runtime.sendMessage(payload, () => void chrome.runtime.lastError);
+    } catch (_) { /* runtime may be unavailable during tab teardown */ }
+  }
+
   chrome.runtime.onMessage.addListener((message) => {
     if (message.type === 'code-executed') {
       showNotification(message.filename, message.codeType);
+      return;
+    }
+    if (message.type === 'li-replay-request') {
+      for (let i = 0; i < history.length; i++) {
+        try {
+          chrome.runtime.sendMessage(history[i], () => void chrome.runtime.lastError);
+        } catch (_) { /* tab teardown */ }
+      }
     }
   });
 
@@ -122,48 +146,33 @@
     if (!data) return;
 
     if (data.source === 'li-classifier' && data.tag) {
-      try {
-        chrome.runtime.sendMessage(
-          { type: 'li-tag-seen', tag: data.tag, origin: location.origin },
-          () => void chrome.runtime.lastError
-        );
-      } catch (_) { /* runtime may be unavailable during tab teardown */ }
+      recordAndForward({ type: 'li-tag-seen', tag: data.tag, origin: location.origin });
       return;
     }
 
     if (data.source === 'li-rule-outcome' && data.tag && data.outcome) {
-      try {
-        chrome.runtime.sendMessage(
-          {
-            type: 'li-rule-outcome',
-            tag: data.tag,
-            outcome: data.outcome,
-            message: data.message,
-            origin: location.origin
-          },
-          () => void chrome.runtime.lastError
-        );
-      } catch (_) { /* runtime may be unavailable during tab teardown */ }
+      recordAndForward({
+        type: 'li-rule-outcome',
+        tag: data.tag,
+        outcome: data.outcome,
+        message: data.message,
+        origin: location.origin
+      });
       return;
     }
 
     if (data.source === 'li-rule-call' && data.id != null) {
-      try {
-        chrome.runtime.sendMessage(
-          {
-            type: 'li-rule-call',
-            id: data.id,
-            builderId: data.builderId,
-            ok: data.ok,
-            result: data.result,
-            durationMs: data.durationMs,
-            error: data.error,
-            ts: data.ts,
-            origin: location.origin
-          },
-          () => void chrome.runtime.lastError
-        );
-      } catch (_) { /* runtime may be unavailable during tab teardown */ }
+      recordAndForward({
+        type: 'li-rule-call',
+        id: data.id,
+        builderId: data.builderId,
+        ok: data.ok,
+        result: data.result,
+        durationMs: data.durationMs,
+        error: data.error,
+        ts: data.ts,
+        origin: location.origin
+      });
     }
   });
 })();

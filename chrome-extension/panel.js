@@ -1158,6 +1158,22 @@
   }
   openPanelPort();
 
+  // Ask the content script to replay events it saw before the panel opened.
+  // Guarded so SW-idle port reconnects don't trigger duplicate replays;
+  // reset on navigation since the new page's content script starts empty.
+  let replayRequested = false;
+  function requestReplay() {
+    if (replayRequested || inspectedTabId == null) return;
+    replayRequested = true;
+    try {
+      chrome.runtime.sendMessage(
+        { type: 'li-request-replay', tabId: inspectedTabId },
+        () => void chrome.runtime.lastError
+      );
+    } catch (_) { /* SW may be asleep; next live event will wake it */ }
+  }
+  requestReplay();
+
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local' || !('liBreakTags' in changes)) return;
     if (localWriteInFlight) { localWriteInFlight = false; return; }
@@ -1169,6 +1185,7 @@
       clearTags();
       applyTestingVariation(null);
       resolveOrigin();
+      replayRequested = false;
     });
   }
 
