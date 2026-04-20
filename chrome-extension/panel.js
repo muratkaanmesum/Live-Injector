@@ -708,19 +708,18 @@
       row.addEventListener('click', (e) => {
         if (e.target === toggleInput) return;
         chrome.devtools.inspectedWindow.getResources((resources) => {
-          let match = resources.find(r => r.url.includes(tag));
-          // Rule-call rows: the annotated sourceURL drops the per-call counter
-          // (rules-interceptor://Custom-Rule-<builderId>.js) — try that shape too.
-          if (!match && ruleIdByTag.has(tag)) {
-            const parsed = parseTag(tag);
-            if (parsed) {
-              const url = 'rules-interceptor://Custom-Rule-' + parsed.id + '.js';
-              match = resources.find(r => r.url === url);
+          const match = resources.find(r => r.url.includes(tag));
+          if (!match) {
+            console.warn('[LiveInjector] no resource URL contains tag:', tag,
+              '— known URLs:', resources.map(r => r.url));
+            return;
+          }
+          chrome.devtools.panels.openResource(match.url, 0, () => {
+            const err = chrome.runtime && chrome.runtime.lastError;
+            if (err) {
+              console.warn('[LiveInjector] openResource failed for', match.url, '—', err.message);
             }
-          }
-          if (match) {
-            chrome.devtools.panels.openResource(match.url, 0, () => {});
-          }
+          });
         });
       });
       row._tag         = tag;
