@@ -560,6 +560,82 @@
         .toast { transition: none; }
       }
 
+      /* ── tooltip ────────────────────────────────────────────────────── */
+      .tip {
+        position: fixed; top: 0; left: 0;
+        z-index: 1000;
+        pointer-events: none;
+        max-width: 260px;
+        padding: 6px 9px 7px;
+        background: oklch(0.14 0.005 60);
+        color: oklch(0.97 0 0);
+        border: 1px solid oklch(0.32 0.005 60);
+        border-radius: 6px;
+        box-shadow:
+          inset 0 1px 0 oklch(1 0 0 / 0.04),
+          0 6px 18px oklch(0 0 0 / 0.38);
+        font-family: var(--font-ui);
+        font-size: 11px;
+        line-height: 1.4;
+        letter-spacing: 0.002em;
+        opacity: 0;
+        transform: translateY(2px);
+        transition: opacity 120ms var(--ease), transform 120ms var(--ease);
+      }
+      .tip[data-placement="bottom"] { transform: translateY(-2px); }
+      .tip.is-visible { opacity: 1; transform: translateY(0); }
+
+      .tip-head {
+        display: flex; align-items: center; gap: 10px;
+        justify-content: space-between;
+      }
+      .tip-title { font-weight: 500; white-space: nowrap; }
+      .tip-kbd {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        padding: 1px 5px;
+        color: oklch(0.88 0 0);
+        background: oklch(1 0 0 / 0.08);
+        border: 1px solid oklch(1 0 0 / 0.14);
+        border-radius: 3px;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+      }
+      .tip-desc {
+        display: block;
+        margin-top: 3px;
+        color: oklch(0.78 0.004 60);
+        font-size: 10.5px;
+        line-height: 1.45;
+      }
+      .tip:not(.has-desc) .tip-desc { display: none; }
+      .tip:not(.has-kbd)  .tip-kbd  { display: none; }
+
+      .tip::after {
+        content: '';
+        position: absolute;
+        width: 7px; height: 7px;
+        left: var(--tip-arrow-x, 50%);
+        margin-left: -4px;
+        background: oklch(0.14 0.005 60);
+        transform: rotate(45deg);
+        pointer-events: none;
+      }
+      .tip[data-placement="top"]::after {
+        bottom: -4px;
+        border-right: 1px solid oklch(0.32 0.005 60);
+        border-bottom: 1px solid oklch(0.32 0.005 60);
+      }
+      .tip[data-placement="bottom"]::after {
+        top: -4px;
+        border-top: 1px solid oklch(0.32 0.005 60);
+        border-left: 1px solid oklch(0.32 0.005 60);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .tip { transition: opacity 80ms linear; transform: none !important; }
+      }
+
       /* ── status bar ─────────────────────────────────────────────────── */
       .statusbar {
         display: flex; align-items: center; gap: 10px;

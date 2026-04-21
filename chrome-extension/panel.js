@@ -720,8 +720,12 @@
       const sourceBtn = document.createElement('button');
       sourceBtn.className = 'source-btn hidden';
       sourceBtn.type      = 'button';
-      sourceBtn.textContent = 'src';
-      sourceBtn.title = 'Add sourceURL for this rule';
+      sourceBtn.textContent = 'rerun';
+      sourceBtn.setAttribute('data-tip', 'Re-run this rule');
+      sourceBtn.setAttribute(
+        'data-tip-desc',
+        'Re-evaluates the rule in-page with a //# sourceURL comment so it shows up under DevTools → Sources.'
+      );
       sourceBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         annotateRuleFromRow(row);
@@ -1221,6 +1225,133 @@
       replayRequested = false;
     });
   }
+
+  // ── Tooltip (delegated, data-tip) ────────────────────────────────
+  // Usage on any element:
+  //   data-tip="Title"                 — required
+  //   data-tip-desc="Extra detail."    — optional, shown under title
+  //   data-tip-kbd="⌘R"                — optional keyboard hint chip
+  //   data-tip-placement="top|bottom"  — optional, defaults to auto
+  (() => {
+    const SHOW_DELAY = 380;
+    const HIDE_DELAY = 80;
+    const MARGIN = 8;
+    const GAP = 6;
+
+    let tipEl = null, titleEl = null, descEl = null, kbdEl = null;
+    let currentTarget = null;
+    let showTimer = 0, hideTimer = 0;
+
+    function ensureEl() {
+      if (tipEl) return;
+      tipEl = document.createElement('div');
+      tipEl.className = 'tip';
+      tipEl.setAttribute('role', 'tooltip');
+      tipEl.innerHTML =
+        '<span class="tip-head">' +
+          '<span class="tip-title"></span>' +
+          '<span class="tip-kbd"></span>' +
+        '</span>' +
+        '<span class="tip-desc"></span>';
+      document.body.appendChild(tipEl);
+      titleEl = tipEl.querySelector('.tip-title');
+      descEl  = tipEl.querySelector('.tip-desc');
+      kbdEl   = tipEl.querySelector('.tip-kbd');
+    }
+
+    function findTarget(el) {
+      return (el && el.closest) ? el.closest('[data-tip]') : null;
+    }
+
+    function show(target) {
+      ensureEl();
+      titleEl.textContent = target.getAttribute('data-tip') || '';
+      const desc = target.getAttribute('data-tip-desc') || '';
+      const kbd  = target.getAttribute('data-tip-kbd')  || '';
+      descEl.textContent = desc;
+      kbdEl.textContent  = kbd;
+      tipEl.classList.toggle('has-desc', !!desc);
+      tipEl.classList.toggle('has-kbd',  !!kbd);
+
+      tipEl.style.left = '0px';
+      tipEl.style.top  = '0px';
+
+      const rect = target.getBoundingClientRect();
+      const tipRect = tipEl.getBoundingClientRect();
+      const vw = window.innerWidth;
+
+      let placement = target.getAttribute('data-tip-placement') || 'auto';
+      if (placement === 'auto') {
+        placement = (rect.top - tipRect.height - GAP >= MARGIN) ? 'top' : 'bottom';
+      }
+      tipEl.dataset.placement = placement;
+
+      const top = placement === 'top'
+        ? rect.top - tipRect.height - GAP
+        : rect.bottom + GAP;
+
+      let left = rect.left + rect.width / 2 - tipRect.width / 2;
+      left = Math.max(MARGIN, Math.min(left, vw - tipRect.width - MARGIN));
+
+      const arrowX = rect.left + rect.width / 2 - left;
+      tipEl.style.setProperty(
+        '--tip-arrow-x',
+        Math.max(10, Math.min(tipRect.width - 10, arrowX)) + 'px'
+      );
+
+      tipEl.style.left = Math.round(left) + 'px';
+      tipEl.style.top  = Math.round(top)  + 'px';
+
+      requestAnimationFrame(() => tipEl.classList.add('is-visible'));
+    }
+
+    function hide() {
+      if (tipEl) tipEl.classList.remove('is-visible');
+      currentTarget = null;
+      hideTimer = 0;
+    }
+
+    function scheduleShow(target) {
+      if (currentTarget === target) return;
+      clearTimeout(hideTimer); hideTimer = 0;
+      const wasVisible = tipEl && tipEl.classList.contains('is-visible');
+      currentTarget = target;
+      clearTimeout(showTimer);
+      showTimer = setTimeout(() => show(target), wasVisible ? 0 : SHOW_DELAY);
+    }
+
+    function scheduleHide() {
+      clearTimeout(showTimer); showTimer = 0;
+      if (!tipEl || !tipEl.classList.contains('is-visible')) {
+        currentTarget = null;
+        return;
+      }
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hide, HIDE_DELAY);
+    }
+
+    document.addEventListener('mouseover', (e) => {
+      const t = findTarget(e.target);
+      if (t) scheduleShow(t);
+    });
+    document.addEventListener('mouseout', (e) => {
+      const from = findTarget(e.target);
+      const to   = findTarget(e.relatedTarget);
+      if (from && from !== to) scheduleHide();
+    });
+    document.addEventListener('focusin', (e) => {
+      const t = findTarget(e.target);
+      if (t) scheduleShow(t);
+    });
+    document.addEventListener('focusout', (e) => {
+      if (findTarget(e.target)) scheduleHide();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && tipEl && tipEl.classList.contains('is-visible')) hide();
+    });
+    window.addEventListener('scroll', () => { if (currentTarget) hide(); }, true);
+    window.addEventListener('blur', hide);
+  })();
 
   // ── Init ─────────────────────────────────────────────────────────
 
