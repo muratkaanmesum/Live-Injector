@@ -7,6 +7,8 @@
   const CAMPAIGN_RE = /\bfunction\s*\(\s*camp\s*\)|\(\s*camp\s*\)\s*=>/;
   const CAMPAIGN_ID_RE = /\)\s*\(\s*\{\s*["']id["']\s*:\s*(\d+)/;
   const CUSTOM_RULE_RE = /customRuleDetail\s*=\s*\{[^}]*["']builderId["']\s*:\s*(\d+)/;
+  // Imperative show: Insider.campaign.<name>.show(…) or Insider.campaign["name"].show(…)
+  const SHOW_CALL_RE = /\bInsider\s*\.\s*campaign\s*(?:\.\s*[A-Za-z_$][\w$]*|\[\s*["'][^"']+["']\s*\])\s*\.\s*show\s*\(/;
 
   // djb2 hash → decimal string. Stable per code body so repeated evals of
   // the same rule collapse onto one row when no ruleId is available.
@@ -40,7 +42,11 @@
     const tag = _liClassify(code, fallback, n);
     if (tag.startsWith('Campaign-') || tag.startsWith('Custom-Rule-')) {
       try {
-        window.postMessage({ source: 'li-classifier', tag: tag }, location.origin);
+        window.postMessage({
+          source:  'li-classifier',
+          tag:     tag,
+          hasShow: SHOW_CALL_RE.test(code),
+        }, location.origin);
       } catch (_) { /* postMessage can throw on detached windows */ }
     }
     return tag;

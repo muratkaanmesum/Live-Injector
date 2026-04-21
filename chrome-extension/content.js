@@ -146,7 +146,12 @@
     if (!data) return;
 
     if (data.source === 'li-classifier' && data.tag) {
-      recordAndForward({ type: 'li-tag-seen', tag: data.tag, origin: location.origin });
+      recordAndForward({
+        type: 'li-tag-seen',
+        tag: data.tag,
+        hasShow: !!data.hasShow,
+        origin: location.origin,
+      });
       return;
     }
 

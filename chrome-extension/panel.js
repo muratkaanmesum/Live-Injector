@@ -26,6 +26,7 @@
   let localWriteInFlight = false;
   let totalHits = 0;
   const hitLog = new Map(); // tag → number[] (timestamps of last 8 hits)
+  const showTags = new Set(); // tags whose code calls Insider.campaign.*.show()
 
   function showToast(message, type /* 'error' | 'info' */) {
     if (!toastEl || !toastMsgEl) return;
@@ -481,6 +482,7 @@
     row._countCell.textContent = String(counts.get(row._tag) || 0);
     row._toggleInput.checked   = breakSet.has(row._tag);
     row.classList.toggle('is-breaking', breakSet.has(row._tag));
+    row.classList.toggle('is-show',     showTags.has(row._tag));
     const heights = sparklineHeights(row._tag);
     row._sparkBars.forEach((bar, i) => { bar.style.height = heights[i] + '%'; });
 
@@ -708,9 +710,30 @@
         outcomeEl.classList.add('instance-outcome--hidden');
       }
 
+      // .show() indicator — lives in its own grid cell so rows stay aligned
+      // whether or not the rule body calls Insider.campaign.*.show().
+      const showEl = document.createElement('span');
+      showEl.className = 'instance-show';
+      showEl.setAttribute('aria-hidden', 'true');
+      showEl.setAttribute('data-tip', 'Calls .show()');
+      showEl.setAttribute(
+        'data-tip-desc',
+        'This rule renders the campaign imperatively via Insider.campaign.<name>.show() instead of by returning truthy.'
+      );
+      const boltSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      boltSvg.setAttribute('width', '10');
+      boltSvg.setAttribute('height', '10');
+      boltSvg.setAttribute('viewBox', '0 0 24 24');
+      boltSvg.setAttribute('fill', 'currentColor');
+      const boltPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      boltPath.setAttribute('d', 'M13 2L3 14h9l-1 8 10-12h-9l1-8z');
+      boltSvg.appendChild(boltPath);
+      showEl.appendChild(boltSvg);
+
       row.appendChild(dotEl);
       row.appendChild(outcomeEl);
       row.appendChild(badge);
+      row.appendChild(showEl);
       row.appendChild(sparklineEl);
       row.appendChild(toggleInput);
 
@@ -847,10 +870,14 @@
 
   // ── Main event handler ───────────────────────────────────────────
 
-  function handleTagSeen(tag) {
+  function handleTagSeen(tag, hasShow) {
     counts.set(tag, (counts.get(tag) || 0) + 1);
     totalHits++;
     recordHit(tag);
+    // Latch sticky — a code path may classify the same tag via a route that
+    // doesn't inspect source (e.g. the rules-interceptor bridge). Once we've
+    // seen .show() for a tag, keep the indicator on.
+    if (hasShow) showTags.add(tag);
 
     const parsed = parseTag(tag);
 
@@ -934,6 +961,7 @@
     resolvingBuilderIds.clear();
     hitLog.clear();
     outcomes.clear();
+    showTags.clear();
     ruleIdByTag.clear();
     sourcedRuleIds.clear();
     evalSeenBuilders.clear();
@@ -1165,7 +1193,7 @@
       if (parsedSeen && parsedSeen.type === 'Custom-Rule') {
         evalSeenBuilders.add(parsedSeen.id);
       }
-      handleTagSeen(msg.tag);
+      handleTagSeen(msg.tag, !!msg.hasShow);
       return;
     }
     if (msg.type === 'li-rule-outcome' && msg.tag && msg.outcome) {

@@ -363,7 +363,7 @@
       /* ── instance row ───────────────────────────────────────────────── */
       .instance {
         display: grid;
-        grid-template-columns: 8px 14px 74px 44px 1fr auto;
+        grid-template-columns: 8px 14px 74px 14px 44px 1fr auto;
         align-items: center; gap: 8px;
         padding: 6px 10px 6px 26px;
         border-bottom: 1px solid var(--border-soft);
@@ -399,6 +399,21 @@
       .instance-outcome.is-pass  { color: #3ecf8e; }
       .instance-outcome.is-fail  { color: #ef4444; }
       .instance-outcome.is-error { color: #f59e0b; }
+
+      /* ── .show() indicator ──────────────────────────────────────────── */
+      /* Marks rows whose code calls Insider.campaign.<name>.show(), i.e.
+         renders imperatively rather than via rule-based truthy evaluation. */
+      .instance-show {
+        display: inline-grid;
+        place-items: center;
+        width: 14px; min-width: 14px; height: 14px;
+        color: oklch(0.78 0.15 280);
+        visibility: hidden;
+        cursor: help;
+      }
+      .instance-show svg { display: block; }
+      .instance.is-show .instance-show { visibility: visible; }
+      [data-theme="light"] .instance-show { color: oklch(0.52 0.18 280); }
 
       /* ── type badge ─────────────────────────────────────────────────── */
       .row-badge {

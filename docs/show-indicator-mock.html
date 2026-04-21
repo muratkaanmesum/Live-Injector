@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <title>.show() indicator — mockups</title>
+    <style>
+      @font-face {
+        font-family: 'JetBrains Mono';
+        src: url('../chrome-extension/fonts/JetBrainsMono[wght].woff2') format('woff2-variations');
+        font-weight: 100 800;
+        font-display: swap;
+      }
+
+      :root {
+        --font-ui:   ui-sans-serif, -apple-system, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+        --radius-sm: 4px;
+        --radius-md: 6px;
+        --radius-lg: 10px;
+        --ease: cubic-bezier(0.2, 0, 0, 1);
+        --dur: 160ms;
+
+        --accent:         oklch(0.64 0.21 26);
+        --accent-soft:    oklch(0.64 0.21 26 / 0.14);
+        --accent-halo:    oklch(0.64 0.21 26 / 0.28);
+
+        --accent-campaign: #e8a24a;
+        --accent-rule:     #5ec4b6;
+        --accent-show:     oklch(0.78 0.15 280);
+        --accent-show-soft: oklch(0.78 0.15 280 / 0.14);
+        --accent-show-border: oklch(0.78 0.15 280 / 0.42);
+
+        --bg:          oklch(0.17 0.005 60);
+        --bg-sunk:     oklch(0.14 0.005 60);
+        --surface:     oklch(0.21 0.005 60);
+        --surface-hi:  oklch(0.24 0.005 60);
+        --border:      oklch(0.29 0.005 60);
+        --border-soft: oklch(0.23 0.005 60);
+        --text:        oklch(0.96 0 0);
+        --text-2:      oklch(0.78 0.004 60);
+        --text-3:      oklch(0.56 0.006 60);
+        --text-4:      oklch(0.40 0.006 60);
+        --hairline:        rgba(255,255,255,0.08);
+        --hairline-strong: rgba(255,255,255,0.14);
+      }
+      [data-theme="light"] {
+        color-scheme: light;
+        --bg:          oklch(0.985 0.002 85);
+        --bg-sunk:     oklch(0.96  0.003 85);
+        --surface:     oklch(1     0     0);
+        --surface-hi:  oklch(0.97  0.003 85);
+        --border:      oklch(0.88  0.004 85);
+        --border-soft: oklch(0.93  0.003 85);
+        --text:        oklch(0.22  0.01  60);
+        --text-2:      oklch(0.38  0.008 60);
+        --text-3:      oklch(0.55  0.006 60);
+        --text-4:      oklch(0.72  0.004 60);
+        --hairline:        rgba(0,0,0,0.07);
+        --hairline-strong: rgba(0,0,0,0.12);
+        --accent-show:      oklch(0.52 0.18 280);
+        --accent-show-soft: oklch(0.52 0.18 280 / 0.1);
+        --accent-show-border: oklch(0.52 0.18 280 / 0.42);
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        font-family: var(--font-ui);
+        font-size: 12.5px; line-height: 1.45;
+        color: var(--text); background: var(--bg);
+        -webkit-font-smoothing: antialiased;
+      }
+      button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+
+      .page {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 28px 80px;
+      }
+      .masthead {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        margin-bottom: 28px;
+        border-bottom: 1px solid var(--border-soft);
+        padding-bottom: 18px;
+      }
+      .masthead h1 {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-weight: 500;
+        font-size: 13px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-2);
+      }
+      .masthead p {
+        margin: 6px 0 0;
+        color: var(--text-3);
+        font-size: 12px;
+        max-width: 52ch;
+      }
+      .masthead code {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--accent-campaign);
+        background: rgba(232,162,74,0.08);
+        padding: 1px 5px;
+        border-radius: 3px;
+      }
+      .theme-toggle {
+        width: 28px; height: 28px; border-radius: var(--radius-md);
+        border: 1px solid var(--border); color: var(--text-3);
+        display: inline-grid; place-items: center;
+      }
+      .theme-toggle:hover { background: var(--surface); color: var(--text); }
+
+      .option {
+        margin-bottom: 22px;
+      }
+      .option-head {
+        display: flex; align-items: baseline; gap: 12px;
+        margin: 0 2px 8px;
+      }
+      .option-letter {
+        display: inline-grid; place-items: center;
+        width: 20px; height: 20px;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        font-family: var(--font-mono);
+        font-size: 11px; font-weight: 600;
+        color: var(--text-2);
+        flex-shrink: 0;
+      }
+      .option-title {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--text-2);
+      }
+      .option-note {
+        color: var(--text-4);
+        font-size: 11.5px;
+      }
+
+      /* ── replicated panel styles ─────────────────────────────────────── */
+      .group {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+      .group-row {
+        display: grid;
+        grid-template-columns: 14px 1fr auto auto auto;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px 6px;
+      }
+      .caret { color: var(--text-4); display: flex; align-items: center; }
+      .group-name {
+        font-family: var(--font-mono); font-weight: 500; font-size: 12px;
+        color: var(--text); overflow: hidden; white-space: nowrap;
+        display: flex; align-items: center; gap: 8px; min-width: 0;
+      }
+      .group-name-id { flex-shrink: 0; }
+      .group-name-sep { color: var(--text-4); flex-shrink: 0; }
+      .group-variation-id {
+        font-size: 12px; font-weight: 500;
+        color: var(--text); font-variant-numeric: tabular-nums;
+        min-width: 0; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      .group-hit-count {
+        font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
+        font-variant-numeric: tabular-nums; min-width: 32px; text-align: right;
+      }
+      .bulk-break {
+        width: 20px; height: 20px; border-radius: 4px;
+        color: var(--text-4);
+        display: inline-grid; place-items: center;
+        border: 1px dashed transparent;
+      }
+
+      /* ─── INDICATOR VARIANTS ─────────────────────────────────────────── */
+
+      /* A — eye glyph, inline */
+      .ind-eye {
+        display: inline-flex; align-items: center;
+        color: var(--text-3);
+        flex-shrink: 0;
+        cursor: help;
+      }
+      .ind-eye svg { display: block; }
+
+      /* B — { } brace pill */
+      .ind-brace {
+        display: inline-flex; align-items: center;
+        height: 16px; padding: 0 6px;
+        font-family: var(--font-mono);
+        font-size: 10px; font-weight: 600;
+        letter-spacing: 0.04em;
+        color: var(--accent-show);
+        background: var(--accent-show-soft);
+        border: 1px solid var(--accent-show-border);
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+
+      /* C — ƒ glyph circle */
+      .ind-fn {
+        display: inline-grid; place-items: center;
+        width: 15px; height: 15px;
+        border-radius: 50%;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-style: italic;
+        font-weight: 600;
+        color: var(--accent-show);
+        background: var(--accent-show-soft);
+        border: 1px solid var(--accent-show-border);
+        flex-shrink: 0;
+        line-height: 1;
+        padding-bottom: 1px;
+      }
+
+      /* D — lightning (imperative) */
+      .ind-bolt {
+        display: inline-grid; place-items: center;
+        width: 15px; height: 15px;
+        color: var(--accent-show);
+        flex-shrink: 0;
+      }
+      .ind-bolt svg { display: block; }
+
+      /* E — .show() literal pill */
+      .ind-show {
+        display: inline-flex; align-items: center;
+        height: 16px; padding: 0 6px;
+        font-family: var(--font-mono);
+        font-size: 9.5px; font-weight: 600;
+        letter-spacing: 0.04em;
+        color: var(--accent-show);
+        background: transparent;
+        border: 1px dashed var(--accent-show-border);
+        border-radius: 3px;
+        flex-shrink: 0;
+      }
+
+      /* F — tiny underlayed mark (minimalist) */
+      .ind-dot {
+        display: inline-block;
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: var(--accent-show);
+        box-shadow: 0 0 5px oklch(0.78 0.15 280 / 0.6);
+        flex-shrink: 0;
+      }
+
+      /* ─── tooltip style trigger (static, visible on first variant) ──── */
+      .tip-static {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+      }
+      .tip-bubble {
+        position: absolute;
+        left: 50%; top: calc(100% + 10px);
+        transform: translateX(-50%);
+        padding: 5px 8px 6px;
+        background: oklch(0.14 0.005 60);
+        color: oklch(0.97 0 0);
+        border: 1px solid oklch(0.32 0.005 60);
+        border-radius: 6px;
+        font-family: var(--font-ui);
+        font-size: 10.5px;
+        white-space: nowrap;
+        box-shadow: 0 6px 18px oklch(0 0 0 / 0.38);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 140ms var(--ease);
+        z-index: 10;
+      }
+      .tip-bubble::before {
+        content: '';
+        position: absolute;
+        left: 50%; top: -4px;
+        margin-left: -4px;
+        width: 7px; height: 7px;
+        background: oklch(0.14 0.005 60);
+        border-left: 1px solid oklch(0.32 0.005 60);
+        border-top: 1px solid oklch(0.32 0.005 60);
+        transform: rotate(45deg);
+      }
+      [data-theme="light"] .tip-bubble,
+      [data-theme="light"] .tip-bubble::before {
+        background: oklch(0.22 0.01 60);
+        border-color: oklch(0.35 0.008 60);
+      }
+      .tip-static:hover .tip-bubble { opacity: 1; }
+
+      /* ── footnote ───────────────────────────────────────────────────── */
+      .footnote {
+        margin-top: 36px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-soft);
+        font-size: 11.5px;
+        color: var(--text-3);
+        line-height: 1.6;
+      }
+      .footnote strong { color: var(--text-2); font-weight: 500; }
+      .footnote ul { margin: 6px 0 0; padding-left: 18px; }
+      .footnote li { margin-bottom: 2px; }
+      .footnote code {
+        font-family: var(--font-mono); font-size: 10.5px;
+        color: var(--accent-show);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="masthead">
+        <div>
+          <h1>.show() indicator · design options</h1>
+          <p>Marks campaigns that render via <code>Insider.campaign.*.show()</code> rather than rule-based truthy evaluation. Hover any indicator for its tooltip.</p>
+        </div>
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme" aria-label="Toggle theme">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- A — Eye -->
+      <div class="option">
+        <div class="option-head">
+          <span class="option-letter">A</span>
+          <span class="option-title">Eye glyph</span>
+          <span class="option-note">Semantic but risks reading as a clickable show/hide toggle.</span>
+        </div>
+        <div class="group">
+          <div class="group-row">
+            <div class="caret">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="group-name">
+              <span class="group-name-id">Campaign-8124</span>
+              <span class="tip-static">
+                <span class="ind-eye" aria-label="renders via .show()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </span>
+                <span class="tip-bubble">renders via <code style="color:#c6a8ff">.show()</code></span>
+              </span>
+              <span class="group-name-sep">/</span>
+              <span class="group-variation-id">7766 · hero-banner</span>
+            </div>
+            <span></span>
+            <span class="group-hit-count">12</span>
+            <span class="bulk-break"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- B — { } pill -->
+      <div class="option">
+        <div class="option-head">
+          <span class="option-letter">B</span>
+          <span class="option-title">Braces pill <code style="color:var(--text-3);font-family:var(--font-mono);font-size:11px">{ }</code></span>
+          <span class="option-note">Clearly communicates "code", matches the existing type-badge + pill vocabulary.</span>
+        </div>
+        <div class="group">
+          <div class="group-row">
+            <div class="caret">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="group-name">
+              <span class="group-name-id">Campaign-8124</span>
+              <span class="tip-static">
+                <span class="ind-brace" aria-label="renders via .show()">{ }</span>
+                <span class="tip-bubble">renders via <code>.show()</code></span>
+              </span>
+              <span class="group-name-sep">/</span>
+              <span class="group-variation-id">7766 · hero-banner</span>
+            </div>
+            <span></span>
+            <span class="group-hit-count">12</span>
+            <span class="bulk-break"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- C — ƒ glyph -->
+      <div class="option">
+        <div class="option-head">
+          <span class="option-letter">C</span>
+          <span class="option-title">Function glyph <code style="color:var(--text-3);font-family:var(--font-mono);font-size:11px;font-style:italic">ƒ</code></span>
+          <span class="option-note">Most compact. "Function call" reading — natural for .show() semantics.</span>
+        </div>
+        <div class="group">
+          <div class="group-row">
+            <div class="caret">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="group-name">
+              <span class="group-name-id">Campaign-8124</span>
+              <span class="tip-static">
+                <span class="ind-fn" aria-label="renders via .show()">ƒ</span>
+                <span class="tip-bubble">renders via <code>.show()</code></span>
+              </span>
+              <span class="group-name-sep">/</span>
+              <span class="group-variation-id">7766 · hero-banner</span>
+            </div>
+            <span></span>
+            <span class="group-hit-count">12</span>
+            <span class="bulk-break"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- D — Lightning -->
+      <div class="option">
+        <div class="option-head">
+          <span class="option-letter">D</span>
+          <span class="option-title">Lightning bolt</span>
+          <span class="option-note">"Imperative / direct" — but collides visually with the existing Eval chip.</span>
+        </div>
+        <div class="group">
+          <div class="group-row">
+            <div class="caret">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="group-name">
+              <span class="group-name-id">Campaign-8124</span>
+              <span class="tip-static">
+                <span class="ind-bolt" aria-label="renders via .show()">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+                  </svg>
+                </span>
+                <span class="tip-bubble">renders via <code>.show()</code></span>
+              </span>
+              <span class="group-name-sep">/</span>
+              <span class="group-variation-id">7766 · hero-banner</span>
+            </div>
+            <span></span>
+            <span class="group-hit-count">12</span>
+            <span class="bulk-break"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- E — .show() literal -->
+      <div class="option">
+        <div class="option-head">
+          <span class="option-letter">E</span>
+          <span class="option-title">Literal <code style="color:var(--text-3);font-family:var(--font-mono);font-size:11px">.show()</code> pill</span>
+          <span class="option-note">Zero ambiguity. Costs more horizontal space — trimming variation text first.</span>
+        </div>
+        <div class="group">
+          <div class="group-row">
+            <div class="caret">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="group-name">
+              <span class="group-name-id">Campaign-8124</span>
+              <span class="ind-show" aria-label="renders via .show()">.show()</span>
+              <span class="group-name-sep">/</span>
+              <span class="group-variation-id">7766 · hero-banner</span>
+            </div>
+            <span></span>
+            <span class="group-hit-count">12</span>
+            <span class="bulk-break"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- F — minimalist dot -->
+      <div class="option">
+        <div class="option-head">
+          <span class="option-letter">F</span>
+          <span class="option-title">Single dot</span>
+          <span class="option-note">Most restrained. Needs tooltip to be discoverable — only works if hover legends are reliable.</span>
+        </div>
+        <div class="group">
+          <div class="group-row">
+            <div class="caret">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="group-name">
+              <span class="group-name-id">Campaign-8124</span>
+              <span class="tip-static">
+                <span class="ind-dot" aria-label="renders via .show()"></span>
+                <span class="tip-bubble">renders via <code>.show()</code></span>
+              </span>
+              <span class="group-name-sep">/</span>
+              <span class="group-variation-id">7766 · hero-banner</span>
+            </div>
+            <span></span>
+            <span class="group-hit-count">12</span>
+            <span class="bulk-break"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- reference row with no indicator -->
+      <div class="option">
+        <div class="option-head">
+          <span class="option-letter" style="opacity:0.4;border-style:dashed">—</span>
+          <span class="option-title" style="color:var(--text-3)">Reference · rule-based campaign (no indicator)</span>
+        </div>
+        <div class="group">
+          <div class="group-row">
+            <div class="caret">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+            <div class="group-name">
+              <span class="group-name-id">Campaign-9013</span>
+              <span class="group-name-sep">/</span>
+              <span class="group-variation-id">8842 · cart-upsell</span>
+            </div>
+            <span></span>
+            <span class="group-hit-count">4</span>
+            <span class="bulk-break"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footnote">
+        <strong>My take</strong>
+        <ul>
+          <li><strong>C (ƒ glyph)</strong> is the tightest fit — minimal space, self-explanatory to the JS-literate audience, new color (violet) keeps it separable from campaign orange and rule teal.</li>
+          <li><strong>B (braces pill)</strong> is the safe second — clearly "code", reads immediately even before hover.</li>
+          <li>I'd skip <strong>A</strong> — too many users will try to click an eye. <strong>D</strong> clashes with the Eval chip. <strong>F</strong> is pretty but invisible.</li>
+        </ul>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        var root = document.documentElement;
+        var stored = localStorage.getItem('li-mock-theme');
+        root.dataset.theme = (stored === 'light' || stored === 'dark') ? stored : 'dark';
+        document.getElementById('theme-toggle').addEventListener('click', function () {
+          var next = root.dataset.theme === 'light' ? 'dark' : 'light';
+          root.dataset.theme = next;
+          localStorage.setItem('li-mock-theme', next);
+        });
+      })();
+    </script>
+  </body>
+</html>

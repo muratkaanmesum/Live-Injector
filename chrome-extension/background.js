@@ -271,7 +271,12 @@ function relayToPanel(tabId, msg) {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message && message.type === 'li-tag-seen') {
     const tabId = _sender && _sender.tab && _sender.tab.id;
-    relayToPanel(tabId, { type: 'li-tag-seen', tag: message.tag, origin: message.origin });
+    relayToPanel(tabId, {
+      type: 'li-tag-seen',
+      tag: message.tag,
+      hasShow: !!message.hasShow,
+      origin: message.origin,
+    });
     return;
   }
   if (message && message.type === 'li-rule-outcome') {
