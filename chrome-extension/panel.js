@@ -25,7 +25,6 @@
   let storedBreakMap = {};
   let localWriteInFlight = false;
   let totalHits = 0;
-  const hitLog = new Map(); // tag → number[] (timestamps of last 8 hits)
   const showTags = new Set(); // tags whose code calls Insider.campaign.*.show()
 
   function showToast(message, type /* 'error' | 'info' */) {
@@ -63,27 +62,6 @@
   // Testing variation state
   let testingVariationId = null;
   let testingPollTimer   = null;
-
-  // ── Sparkline helpers ────────────────────────────────────────────
-
-  function recordHit(tag) {
-    if (!hitLog.has(tag)) hitLog.set(tag, []);
-    const log = hitLog.get(tag);
-    log.push(Date.now());
-    if (log.length > 8) log.shift();
-  }
-
-  function sparklineHeights(tag) {
-    const log = hitLog.get(tag) || [];
-    const now = Date.now();
-    const heights = Array(8).fill(4);
-    log.forEach((ts, i) => {
-      const ageMs = now - ts;
-      const h = Math.max(4, Math.round(92 - ageMs / 800));
-      heights[8 - log.length + i] = Math.min(92, h);
-    });
-    return heights;
-  }
 
   // ── Status bar ───────────────────────────────────────────────────
 
@@ -483,8 +461,6 @@
     row._toggleInput.checked   = breakSet.has(row._tag);
     row.classList.toggle('is-breaking', breakSet.has(row._tag));
     row.classList.toggle('is-show',     showTags.has(row._tag));
-    const heights = sparklineHeights(row._tag);
-    row._sparkBars.forEach((bar, i) => { bar.style.height = heights[i] + '%'; });
 
     syncSourceBtn(row);
 
@@ -670,15 +646,6 @@
         badge.textContent = 'Tag';
       }
 
-      const sparklineEl = document.createElement('div');
-      sparklineEl.className = 'sparkline';
-      const sparkBars = Array.from({ length: 8 }, () => {
-        const bar = document.createElement('span');
-        bar.style.height = '4%';
-        sparklineEl.appendChild(bar);
-        return bar;
-      });
-
       const countCell   = document.createElement('span');
       countCell.className = 'instance-hit-count';
 
@@ -734,7 +701,6 @@
       row.appendChild(outcomeEl);
       row.appendChild(badge);
       row.appendChild(showEl);
-      row.appendChild(sparklineEl);
       row.appendChild(toggleInput);
 
       // "src" button: only for rule rows known to have come from Insider.rules.call
@@ -783,7 +749,6 @@
       row._countCell   = countCell;
       row._outcomeEl   = outcomeEl;
       row._toggleInput = toggleInput;
-      row._sparkBars   = sparkBars;
       row._badge       = badge;
       row._group       = group;
 
@@ -873,7 +838,6 @@
   function handleTagSeen(tag, hasShow) {
     counts.set(tag, (counts.get(tag) || 0) + 1);
     totalHits++;
-    recordHit(tag);
     // Latch sticky — a code path may classify the same tag via a route that
     // doesn't inspect source (e.g. the rules-interceptor bridge). Once we've
     // seen .show() for a tag, keep the indicator on.
@@ -959,7 +923,6 @@
     varIdToBuilder.clear();
     resolvingVarIds.clear();
     resolvingBuilderIds.clear();
-    hitLog.clear();
     outcomes.clear();
     showTags.clear();
     ruleIdByTag.clear();

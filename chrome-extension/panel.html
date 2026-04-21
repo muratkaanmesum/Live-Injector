@@ -363,7 +363,7 @@
       /* ── instance row ───────────────────────────────────────────────── */
       .instance {
         display: grid;
-        grid-template-columns: 8px 14px 74px 14px 44px 1fr auto;
+        grid-template-columns: 8px 14px 74px 14px 1fr auto;
         align-items: center; gap: 8px;
         padding: 6px 10px 6px 26px;
         border-bottom: 1px solid var(--border-soft);
@@ -443,19 +443,6 @@
       }
       .row-badge.type-rule::before { background: var(--accent-rule); }
 
-
-      /* ── sparkline ──────────────────────────────────────────────────── */
-      .sparkline {
-        display: flex; align-items: flex-end; gap: 1.5px;
-        height: 14px;
-      }
-      .sparkline span {
-        flex: 1; min-height: 2px; border-radius: 1px;
-        background: var(--text-4); opacity: 0.7;
-        transition: height 180ms var(--ease);
-      }
-      .instance:hover .sparkline span { background: var(--text-3); }
-      .instance.is-breaking .sparkline span { background: oklch(0.64 0.21 26 / 0.45); opacity: 1; }
 
       /* ── breakpoint checkbox ────────────────────────────────────────── */
       .bp {
