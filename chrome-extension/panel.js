@@ -318,21 +318,11 @@
     const storageDotVisibleEl = document.createElement('span');
     storageDotVisibleEl.className = 'storage-dot';
     storageDotVisibleEl.setAttribute('data-flag', 'visible');
-    storageDotVisibleEl.setAttribute('data-tip', 'Visible');
-    storageDotVisibleEl.setAttribute(
-      'data-tip-desc',
-      'Any stepN-displayed flag in Insider.campaign.getCampaignStorage(variationId) is true.'
-    );
     storageDotVisibleEl.textContent = 'visible';
 
     const storageDotJoinedEl = document.createElement('span');
     storageDotJoinedEl.className = 'storage-dot';
     storageDotJoinedEl.setAttribute('data-flag', 'joined');
-    storageDotJoinedEl.setAttribute('data-tip', 'Joined');
-    storageDotJoinedEl.setAttribute(
-      'data-tip-desc',
-      'The joined flag in Insider.campaign.getCampaignStorage(variationId) is true (user clicked / engaged).'
-    );
     storageDotJoinedEl.textContent = 'joined';
 
     storageDotsEl.appendChild(storageDotVisibleEl);
