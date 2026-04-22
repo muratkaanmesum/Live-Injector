@@ -967,6 +967,7 @@
     resolvingBuilderIds.clear();
     outcomes.clear();
     showTags.clear();
+    storageSnapshot.clear();
     ruleIdByTag.clear();
     sourcedRuleIds.clear();
     evalSeenBuilders.clear();
