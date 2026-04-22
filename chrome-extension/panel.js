@@ -19,8 +19,10 @@
   const counts = new Map();
   const outcomes = new Map(); // tag -> { outcome: 'pass'|'fail'|'error', at: number, message: string|null }
   const rowEls = new Map();
-  // builderId → { groupEl, headerEl, bodyEl, nameCell, metaEl, breakBadgeEl,
-  //               hitCountCell, instanceEls, expanded, campaignCount, ruleCount, builderId }
+  // builderId → { groupEl, headerEl, bodyEl, nameCell, metaEl, metaTextEl,
+  //               storageDotsEl, storageDotVisibleEl, storageDotJoinedEl,
+  //               breakBadgeEl, hitCountCell, instanceEls, expanded,
+  //               campaignCount, ruleCount, builderId }
   const groups = new Map();
   let storedBreakMap = {};
   let localWriteInFlight = false;
@@ -205,8 +207,8 @@
   // ── Group meta subtitle helper ───────────────────────────────────
 
   function updateGroupMeta(group) {
-    if (!group || !group.metaEl) return;
-    group.metaEl.textContent =
+    if (!group || !group.metaTextEl) return;
+    group.metaTextEl.textContent =
       group.campaignCount + (group.campaignCount === 1 ? ' CAMPAIGN' : ' CAMPAIGNS') +
       ' · ' + group.ruleCount + (group.ruleCount === 1 ? ' RULE' : ' RULES');
   }
@@ -302,7 +304,40 @@
     // .group-meta — subtitle line
     const metaEl = document.createElement('div');
     metaEl.className = 'group-meta';
-    metaEl.textContent = '0 CAMPAIGNS · 0 RULES';
+
+    const metaTextEl = document.createElement('span');
+    metaTextEl.className = 'group-meta-text';
+    metaTextEl.textContent = '0 CAMPAIGNS · 0 RULES';
+    metaEl.appendChild(metaTextEl);
+
+    // Storage indicator dots — both always rendered; toggled via .is-on by
+    // the campaign-storage poller below.
+    const storageDotsEl = document.createElement('span');
+    storageDotsEl.className = 'storage-dots';
+
+    const storageDotVisibleEl = document.createElement('span');
+    storageDotVisibleEl.className = 'storage-dot';
+    storageDotVisibleEl.setAttribute('data-flag', 'visible');
+    storageDotVisibleEl.setAttribute('data-tip', 'Visible');
+    storageDotVisibleEl.setAttribute(
+      'data-tip-desc',
+      'Any stepN-displayed flag in Insider.campaign.getCampaignStorage(variationId) is true.'
+    );
+    storageDotVisibleEl.textContent = 'visible';
+
+    const storageDotJoinedEl = document.createElement('span');
+    storageDotJoinedEl.className = 'storage-dot';
+    storageDotJoinedEl.setAttribute('data-flag', 'joined');
+    storageDotJoinedEl.setAttribute('data-tip', 'Joined');
+    storageDotJoinedEl.setAttribute(
+      'data-tip-desc',
+      'The joined flag in Insider.campaign.getCampaignStorage(variationId) is true (user clicked / engaged).'
+    );
+    storageDotJoinedEl.textContent = 'joined';
+
+    storageDotsEl.appendChild(storageDotVisibleEl);
+    storageDotsEl.appendChild(storageDotJoinedEl);
+    metaEl.appendChild(storageDotsEl);
 
     groupHeaderEl.appendChild(headerEl);
     groupHeaderEl.appendChild(metaEl);
@@ -321,6 +356,7 @@
 
     const group = {
       groupEl, headerEl: groupHeaderEl, bodyEl, nameCell, varCell, metaEl,
+      metaTextEl, storageDotsEl, storageDotVisibleEl, storageDotJoinedEl,
       breakBadgeEl, hitCountCell, instanceEls: [], expanded: false,
       builderId: key, campaignCount: 0, ruleCount: 0,
       _variationId: variationId ? String(variationId) : null,
