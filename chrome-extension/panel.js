@@ -891,6 +891,12 @@
             resolvingBuilderIds.delete(builderId);
             if (!resolvedMeta) return;
             updateGroupVariationId(builderId, resolvedMeta.variationId);
+            // varIdToBuilder mapping is only now populated — reapply glow if
+            // this builder matches the tester's selected variation.
+            if (testingVariationId && resolvedMeta.variationId === testingVariationId) {
+              const g = groups.get(builderId);
+              if (g) g.groupEl.classList.add('is-testing');
+            }
           }).catch(() => { resolvingBuilderIds.delete(builderId); });
         }
       }
