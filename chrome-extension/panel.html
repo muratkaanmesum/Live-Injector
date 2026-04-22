@@ -351,6 +351,53 @@
         box-shadow: 0 0 6px var(--accent-rule);
       }
 
+      /* ── storage dots (drawer meta) ────────────────────────────────── */
+      /* Two indicators on each drawer's meta line, driven by the
+         getCampaignStorage poller in panel.js. Both always render; the
+         .is-on class lights a dot up. */
+      .storage-dots {
+        display: inline-flex;
+        gap: 10px;
+        margin-left: 10px;
+        vertical-align: middle;
+      }
+      .storage-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: var(--text-4);
+        cursor: help;
+      }
+      .storage-dot::before {
+        content: "";
+        display: inline-block;
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: oklch(0.32 0.006 60);
+        box-shadow: none;
+      }
+      .storage-dot.is-on[data-flag="visible"] {
+        color: var(--accent-rule);
+      }
+      .storage-dot.is-on[data-flag="visible"]::before {
+        background: var(--accent-rule);
+        box-shadow: 0 0 6px var(--accent-rule);
+      }
+      .storage-dot.is-on[data-flag="joined"] {
+        color: var(--accent-campaign);
+      }
+      .storage-dot.is-on[data-flag="joined"]::before {
+        background: var(--accent-campaign);
+        box-shadow: 0 0 6px var(--accent-campaign);
+      }
+      [data-theme="light"] .storage-dot::before {
+        background: oklch(0.80 0.004 60);
+      }
+
       /* ── group body with animated collapse ─────────────────────────── */
       .group-body-wrap {
         display: grid;
