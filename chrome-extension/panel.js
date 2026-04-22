@@ -1386,10 +1386,71 @@
     window.addEventListener('blur', hide);
   })();
 
+  // ── Campaign storage poller ─────────────────────────────────────
+  // Polls Insider.campaign.getCampaignStorage(variationId) at 1500ms for
+  // every known variationId, surfaces two flags per drawer:
+  //   - visible: any stepN-displayed key in storage is truthy
+  //   - joined:  storage.joined is truthy
+  // See docs/superpowers/specs/2026-04-22-campaign-storage-dots-design.md.
+
+  const storageSnapshot = new Map(); // builderId → { visible: boolean, joined: boolean }
+  let storagePollTimer  = null;
+
+  function syncGroupStorageDots(group, state) {
+    if (!group || !group.storageDotVisibleEl || !group.storageDotJoinedEl) return;
+    group.storageDotVisibleEl.classList.toggle('is-on', !!(state && state.visible));
+    group.storageDotJoinedEl .classList.toggle('is-on', !!(state && state.joined));
+  }
+
+  async function pollCampaignStorage() {
+    // Collect resolved variationIds from the current group set.
+    const vids = [];
+    groups.forEach((g) => { if (g._variationId) vids.push(String(g._variationId)); });
+    if (vids.length === 0) return;
+
+    const listLiteral = JSON.stringify(vids);
+    const expr =
+      '(function(vids){' +
+        'try{' +
+          'if(!window.Insider||!Insider.campaign||!Insider.campaign.getCampaignStorage)return null;' +
+          'var out={};' +
+          'for(var i=0;i<vids.length;i++){' +
+            'var vid=vids[i];' +
+            'try{' +
+              'var s=Insider.campaign.getCampaignStorage(vid)||{};' +
+              'var visible=false;' +
+              'for(var k in s){if(/^step\\d+-displayed$/.test(k)&&s[k]){visible=true;break;}}' +
+              'out[vid]={visible:visible,joined:!!s.joined};' +
+            '}catch(e){}' +
+          '}' +
+          'return out;' +
+        '}catch(e){return null;}' +
+      '})(' + listLiteral + ')';
+
+    const result = await evalOnPage(expr);
+    if (!result || typeof result !== 'object') return;
+
+    Object.keys(result).forEach((vid) => {
+      const bid = varIdToBuilder.get(vid);
+      if (!bid) return;
+      const group = groups.get(bid);
+      if (!group) return;
+
+      const next = result[vid] || { visible: false, joined: false };
+      const prev = storageSnapshot.get(bid);
+      if (prev && prev.visible === next.visible && prev.joined === next.joined) return;
+
+      storageSnapshot.set(bid, next);
+      syncGroupStorageDots(group, next);
+    });
+  }
+
   // ── Init ─────────────────────────────────────────────────────────
 
   resolveOrigin();
   pollTestingVariation();
   testingPollTimer = setInterval(pollTestingVariation, 1500);
+  pollCampaignStorage();
+  storagePollTimer = setInterval(pollCampaignStorage, 1500);
 
 })();
