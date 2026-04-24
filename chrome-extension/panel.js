@@ -130,6 +130,23 @@
     return svg;
   }
 
+  function svgScrollTo() {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '12'); svg.setAttribute('height', '12');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none'); svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2.4');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    arrow.setAttribute('d', 'M12 4 L12 14 M7 11 L12 16 L17 11');
+    svg.appendChild(arrow);
+    const target = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    target.setAttribute('d', 'M5 20 L19 20');
+    svg.appendChild(target);
+    return svg;
+  }
+
   // ── Product-alias chip helpers ──────────────────────────────────
   // Every campaign the Insider runtime knows about carries a `pa`
   // (productAlias) field, surfaced via Insider.campaign.all()[i].pa.
@@ -418,15 +435,22 @@
     hitCountCell.className = 'group-hit-count';
     hitCountCell.textContent = '0';
 
+    const scrollBtn = document.createElement('button');
+    scrollBtn.className = 'scroll-to-camp';
+    scrollBtn.setAttribute('data-tip', 'Focus on campaign');
+    scrollBtn.disabled = true;
+    scrollBtn.appendChild(svgScrollTo());
+
     const bulkBreakBtn = document.createElement('button');
     bulkBreakBtn.className = 'bulk-break';
-    bulkBreakBtn.title = 'Toggle breakpoints for all rules';
+    bulkBreakBtn.setAttribute('data-tip', 'Debug all');
     bulkBreakBtn.appendChild(svgBulkBreak());
 
     headerEl.appendChild(caretWrap);
     headerEl.appendChild(nameCell);
     headerEl.appendChild(breakBadgeEl);
     headerEl.appendChild(hitCountCell);
+    headerEl.appendChild(scrollBtn);
     headerEl.appendChild(bulkBreakBtn);
 
     // .group-meta — subtitle line
@@ -475,17 +499,24 @@
     const group = {
       groupEl, headerEl: groupHeaderEl, bodyEl, nameCell, varCell, metaEl,
       metaTextEl, storageDotsEl, storageDotVisibleEl, storageDotJoinedEl,
-      paChipEl,
+      paChipEl, scrollBtn,
       breakBadgeEl, hitCountCell, instanceEls: [], expanded: false,
       builderId: key, campaignCount: 0, ruleCount: 0,
       _variationId: variationId ? String(variationId) : null,
       _product: null,
+      _present: false,
     };
 
     groupHeaderEl.addEventListener('click', (e) => {
       if (e.target.closest('.bulk-break')) return;
+      if (e.target.closest('.scroll-to-camp')) return;
       group.expanded = !group.expanded;
       groupEl.classList.toggle('is-open', group.expanded);
+    });
+
+    scrollBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleScrollToCampaign(group);
     });
 
     bulkBreakBtn.addEventListener('click', (e) => {
@@ -554,15 +585,22 @@
     hitCountCell.className = 'group-hit-count';
     hitCountCell.textContent = '0';
 
+    const scrollBtn = document.createElement('button');
+    scrollBtn.className = 'scroll-to-camp';
+    scrollBtn.setAttribute('data-tip', 'Focus on campaign');
+    scrollBtn.disabled = true;
+    scrollBtn.appendChild(svgScrollTo());
+
     const bulkBreakBtn = document.createElement('button');
     bulkBreakBtn.className = 'bulk-break';
-    bulkBreakBtn.title = 'Toggle breakpoints for all rules';
+    bulkBreakBtn.setAttribute('data-tip', 'Debug all');
     bulkBreakBtn.appendChild(svgBulkBreak());
 
     headerEl.appendChild(caretWrap);
     headerEl.appendChild(nameCell);
     headerEl.appendChild(breakBadgeEl);
     headerEl.appendChild(hitCountCell);
+    headerEl.appendChild(scrollBtn);
     headerEl.appendChild(bulkBreakBtn);
 
     groupHeaderEl.appendChild(headerEl);
@@ -1519,18 +1557,31 @@
 
   // ── Campaign storage poller ─────────────────────────────────────
   // Polls Insider.campaign.getCampaignStorage(variationId) at 1500ms for
-  // every known variationId, surfaces two flags per drawer:
+  // every known variationId, surfaces three flags per drawer:
   //   - visible: any stepN-displayed key in storage is truthy
   //   - joined:  storage.joined is truthy
-  // See docs/superpowers/specs/2026-04-22-campaign-storage-dots-design.md.
+  //   - present: .ins-preview-wrapper-<vid> exists in the document
+  //              (drives the scroll-to-campaign button enabled state)
+  // See docs/superpowers/specs/2026-04-22-campaign-storage-dots-design.md
+  // and 2026-04-24-scroll-to-campaign-design.md.
 
-  const storageSnapshot = new Map(); // builderId → { visible: boolean, joined: boolean }
+  const storageSnapshot = new Map(); // builderId → { visible, joined, present }
   let storagePollTimer  = null;
 
   function syncGroupStorageDots(group, state) {
     if (!group || !group.storageDotVisibleEl || !group.storageDotJoinedEl) return;
     group.storageDotVisibleEl.classList.toggle('is-on', !!(state && state.visible));
     group.storageDotJoinedEl .classList.toggle('is-on', !!(state && state.joined));
+  }
+
+  function syncGroupScrollBtn(group, present) {
+    if (!group || !group.scrollBtn) return;
+    group._present = !!present;
+    group.scrollBtn.disabled = !present;
+    group.scrollBtn.setAttribute(
+      'data-tip',
+      present ? 'Focus on campaign' : 'Campaign not on page yet'
+    );
   }
 
   async function pollCampaignStorage() {
@@ -1543,15 +1594,19 @@
     const expr =
       '(function(vids){' +
         'try{' +
-          'if(!window.Insider||!Insider.campaign||!Insider.campaign.getCampaignStorage)return null;' +
+          'var hasStorage=!!(window.Insider&&Insider.campaign&&Insider.campaign.getCampaignStorage);' +
           'var out={};' +
           'for(var i=0;i<vids.length;i++){' +
             'var vid=vids[i];' +
             'try{' +
-              'var s=Insider.campaign.getCampaignStorage(vid)||{};' +
-              'var visible=false;' +
-              'for(var k in s){if(/^step\\d+-displayed$/.test(k)&&s[k]){visible=true;break;}}' +
-              'out[vid]={visible:visible,joined:!!s.joined};' +
+              'var visible=false,joined=false;' +
+              'if(hasStorage){' +
+                'var s=Insider.campaign.getCampaignStorage(vid)||{};' +
+                'for(var k in s){if(/^step\\d+-displayed$/.test(k)&&s[k]){visible=true;break;}}' +
+                'joined=!!s.joined;' +
+              '}' +
+              'var present=!!document.querySelector(".ins-preview-wrapper-"+vid);' +
+              'out[vid]={visible:visible,joined:joined,present:present};' +
             '}catch(e){}' +
           '}' +
           'return out;' +
@@ -1567,18 +1622,79 @@
       const group = groups.get(bid);
       if (!group) return;
 
-      const next = result[vid] || { visible: false, joined: false };
+      const next = result[vid] || { visible: false, joined: false, present: false };
       const prev = storageSnapshot.get(bid);
-      if (prev && prev.visible === next.visible && prev.joined === next.joined) return;
+      if (
+        prev &&
+        prev.visible === next.visible &&
+        prev.joined  === next.joined  &&
+        prev.present === next.present
+      ) return;
 
       storageSnapshot.set(bid, next);
-      syncGroupStorageDots(group, next);
+      if (!prev || prev.visible !== next.visible || prev.joined !== next.joined) {
+        syncGroupStorageDots(group, next);
+      }
+      if (!prev || prev.present !== next.present) {
+        syncGroupScrollBtn(group, next.present);
+      }
     });
 
     // Piggyback the product-alias batch resolve on the storage tick so
     // we reuse the same cadence without a second interval. No-op when
     // every known group already has its pa mapped.
     resolveProductAliases();
+  }
+
+  // ── Scroll-to-campaign click handler ────────────────────────────
+  // Page-side classifier: for a given variationId, find the
+  // .ins-preview-wrapper-<vid> element, decide whether it's hidden
+  // (display:none / 0×0 / opacity:0), in viewport, or off-screen,
+  // then scroll + flash as appropriate. Returns one of:
+  //   'missing' | 'hidden' | 'visible' | 'scrolled'
+  // The flash style is injected once and reused.
+  function scrollToCampaignExpr(vid) {
+    return (
+      '(function(){' +
+        'try{' +
+          'var el=document.querySelector(".ins-preview-wrapper-' + vid + '");' +
+          'if(!el)return"missing";' +
+          'var cs=getComputedStyle(el);' +
+          'var rect=el.getBoundingClientRect();' +
+          'var hidden=el.offsetParent===null||cs.visibility==="hidden"||parseFloat(cs.opacity)===0||(rect.width===0&&rect.height===0);' +
+          'if(hidden)return"hidden";' +
+          'if(!document.getElementById("li-flash-style")){' +
+            'var st=document.createElement("style");st.id="li-flash-style";' +
+            'st.textContent=".li-flash{outline:2px solid #e8a24a !important;outline-offset:3px !important;box-shadow:0 0 0 6px rgba(232,162,74,0.28) !important;animation:li-flash-fade 1.2s ease-out 1 !important;}' +
+              '@keyframes li-flash-fade{0%{outline-color:#e8a24a;box-shadow:0 0 0 6px rgba(232,162,74,0.28);}100%{outline-color:rgba(232,162,74,0);box-shadow:0 0 0 6px rgba(232,162,74,0);}}";' +
+            'document.head.appendChild(st);' +
+          '}' +
+          'var vh=window.innerHeight||document.documentElement.clientHeight;' +
+          'var vw=window.innerWidth||document.documentElement.clientWidth;' +
+          'var inView=rect.bottom>0&&rect.top<vh&&rect.right>0&&rect.left<vw;' +
+          'if(!inView){el.scrollIntoView({behavior:"smooth",block:"center"});}' +
+          'el.classList.remove("li-flash");' +
+          'void el.offsetWidth;' +
+          'el.classList.add("li-flash");' +
+          'setTimeout(function(){el.classList.remove("li-flash");},1300);' +
+          'return inView?"visible":"scrolled";' +
+        '}catch(e){return"missing";}' +
+      '})()'
+    );
+  }
+
+  async function handleScrollToCampaign(group) {
+    if (!group || !group._variationId) return;
+    const vid = String(group._variationId);
+    const result = await evalOnPage(scrollToCampaignExpr(vid));
+    if (result === 'hidden') {
+      showToast('Campaign mounted but hidden (display:none / 0×0 / opacity:0)', 'info');
+    } else if (result === 'missing') {
+      // Wrapper disappeared between poll and click — refresh the button state
+      // and toast once.
+      syncGroupScrollBtn(group, false);
+      showToast('Campaign no longer on page', 'info');
+    }
   }
 
   // ── Init ─────────────────────────────────────────────────────────

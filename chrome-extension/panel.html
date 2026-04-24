@@ -253,7 +253,7 @@
       }
       .group-row {
         display: grid;
-        grid-template-columns: 14px 1fr auto auto auto;
+        grid-template-columns: 14px 1fr auto auto auto auto;
         align-items: center;
         gap: 8px;
         padding: 7px 10px 6px;
@@ -317,6 +317,26 @@
       }
       .group-header:hover .bulk-break { border-color: var(--border); color: var(--text-3); }
       .bulk-break:hover { background: var(--accent-soft) !important; color: var(--accent) !important; border-color: var(--accent) !important; border-style: solid !important; }
+
+      .scroll-to-camp {
+        width: 20px; height: 20px; border-radius: 4px; color: var(--text-4);
+        display: inline-grid; place-items: center; flex-shrink: 0;
+        border: 1px dashed transparent; background: transparent;
+        transition: all var(--dur) var(--ease);
+      }
+      .group-header:hover .scroll-to-camp:not(:disabled) {
+        border-color: var(--border); color: var(--text-3);
+      }
+      .scroll-to-camp:not(:disabled):hover {
+        background: var(--accent-soft) !important;
+        color: var(--accent) !important;
+        border-color: var(--accent) !important;
+        border-style: solid !important;
+      }
+      .scroll-to-camp:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
 
       /* ── pending group ──────────────────────────────────────────────── */
       .group.is-pending {
