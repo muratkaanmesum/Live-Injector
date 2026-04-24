@@ -58,6 +58,11 @@
   const resolvingVarIds     = new Set(); // variationId strings with active resolveBuilderMeta
   const resolvingBuilderIds = new Set(); // builderId strings with active resolveBuilderMeta
 
+  // variationId → raw productAlias string from Insider.campaign.all()[i].pa.
+  // Populated in batch (one .all() call per tick) by resolveProductAliases.
+  const paByVariationId = new Map();
+  let paResolveInFlight = false;
+
   // Pending group singleton (tags awaiting Insider runtime resolution)
   let pendingGroup = null;
 
@@ -122,6 +127,57 @@
     const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     circle.setAttribute('cx', '12'); circle.setAttribute('cy', '12'); circle.setAttribute('r', '8');
     svg.appendChild(circle);
+    return svg;
+  }
+
+  // ── Product-alias chip helpers ──────────────────────────────────
+  // Every campaign the Insider runtime knows about carries a `pa`
+  // (productAlias) field, surfaced via Insider.campaign.all()[i].pa.
+  // Multiple aliases collapse to a single canonical product key so
+  // the UI only has to think about "eureka" or "smart-recommender".
+  function productFromAlias(pa) {
+    if (!pa) return null;
+    const s = String(pa).toLowerCase();
+    if (s === 'eureka') return 'eureka';
+    if (s === 'smart-recommender' ||
+        s === 'web-smart-recommender' ||
+        s === 'mobile-app-smart-recommender') return 'smart-recommender';
+    return null;
+  }
+
+  function productLabel(product) {
+    if (product === 'eureka') return 'Eureka';
+    if (product === 'smart-recommender') return 'Smart Rec';
+    return '';
+  }
+
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.keys(attrs).forEach(k => el.setAttribute(k, attrs[k]));
+    return el;
+  }
+
+  function buildProductIcon(product) {
+    const svg = svgEl('svg', {
+      viewBox: '0 0 16 16',
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '1.75',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      'aria-hidden': 'true',
+    });
+    if (product === 'eureka') {
+      svg.appendChild(svgEl('circle', { cx: '7', cy: '7', r: '4.25' }));
+      svg.appendChild(svgEl('path',   { d: 'M10.2 10.2 L13.5 13.5' }));
+    } else if (product === 'smart-recommender') {
+      ['8,3.5', '3.5,11', '12.5,11'].forEach(pair => {
+        const [cx, cy] = pair.split(',');
+        svg.appendChild(svgEl('circle', { cx, cy, r: '1.4', fill: 'currentColor', stroke: 'none' }));
+      });
+      svg.appendChild(svgEl('path', { d: 'M8 4.5 L4 10' }));
+      svg.appendChild(svgEl('path', { d: 'M8 4.5 L12 10' }));
+    }
     return svg;
   }
 
@@ -218,6 +274,72 @@
     if (group && group.varCell && variationId && !group._variationId) {
       group.varCell.textContent = 'variationId: ' + variationId;
       group._variationId = variationId;
+      // variationId is the key paByVariationId is indexed by — try to
+      // backfill the chip if Insider.campaign.all() was already mapped.
+      if (paByVariationId.has(String(variationId))) {
+        updateGroupProductAlias(builderId, paByVariationId.get(String(variationId)));
+      }
+    }
+  }
+
+  // Paint or clear the pa-chip on a group. Idempotent — a no-op when the
+  // chip already matches `pa`. Unknown aliases render as "no chip".
+  function updateGroupProductAlias(builderId, pa) {
+    const group = groups.get(String(builderId));
+    if (!group || !group.paChipEl) return;
+    const product = productFromAlias(pa);
+    if (group._product === product) return;
+    group._product = product;
+    group.paChipEl.textContent = '';
+    group.paChipEl.classList.remove('is-resolved');
+    group.paChipEl.removeAttribute('data-product');
+    if (!product) return;
+    group.paChipEl.dataset.product = product;
+    group.paChipEl.appendChild(buildProductIcon(product));
+    group.paChipEl.appendChild(document.createTextNode(productLabel(product)));
+    group.paChipEl.classList.add('is-resolved');
+  }
+
+  // Batched resolver — runs Insider.campaign.get(variationId).pa for
+  // every group that still lacks a cached alias. Called opportunistically
+  // from the existing campaign-storage poll tick so we don't add a
+  // separate interval.
+  async function resolveProductAliases() {
+    if (paResolveInFlight) return;
+    const vids = [];
+    groups.forEach(g => {
+      if (g._variationId && !paByVariationId.has(g._variationId)) vids.push(g._variationId);
+    });
+    if (vids.length === 0) return;
+
+    paResolveInFlight = true;
+    try {
+      const listLiteral = JSON.stringify(vids);
+      const expr =
+        '(function(vids){try{' +
+          'if(!window.Insider||!Insider.campaign||typeof Insider.campaign.get!=="function")return null;' +
+          'var out={};' +
+          'for(var i=0;i<vids.length;i++){' +
+            'var vid=vids[i];' +
+            'try{' +
+              'var c=Insider.campaign.get(vid);' +
+              'if(c&&c.pa){out[vid]=String(c.pa);}' +
+            '}catch(e){}' +
+          '}' +
+          'return out;' +
+        '}catch(e){return null;}})(' + listLiteral + ')';
+      const result = await evalOnPage(expr);
+      if (!result || typeof result !== 'object') return;
+      Object.keys(result).forEach(vid => {
+        paByVariationId.set(vid, result[vid]);
+      });
+      groups.forEach(g => {
+        if (g._variationId && paByVariationId.has(g._variationId)) {
+          updateGroupProductAlias(g.builderId, paByVariationId.get(g._variationId));
+        }
+      });
+    } finally {
+      paResolveInFlight = false;
     }
   }
 
@@ -277,9 +399,15 @@
     testingPill.className = 'testing-pill';
     testingPill.textContent = 'live';
 
+    // Product-alias chip — hidden until resolveProductAliases() tags it
+    // with data-product. Built empty here so the grid stays stable.
+    const paChipEl = document.createElement('span');
+    paChipEl.className = 'pa-chip';
+
     nameCell.appendChild(builderIdSpan);
     nameCell.appendChild(sepSpan);
     nameCell.appendChild(varCell);
+    nameCell.appendChild(paChipEl);
     nameCell.appendChild(testingPill);
 
     const breakBadgeEl = document.createElement('span');
@@ -347,9 +475,11 @@
     const group = {
       groupEl, headerEl: groupHeaderEl, bodyEl, nameCell, varCell, metaEl,
       metaTextEl, storageDotsEl, storageDotVisibleEl, storageDotJoinedEl,
+      paChipEl,
       breakBadgeEl, hitCountCell, instanceEls: [], expanded: false,
       builderId: key, campaignCount: 0, ruleCount: 0,
       _variationId: variationId ? String(variationId) : null,
+      _product: null,
     };
 
     groupHeaderEl.addEventListener('click', (e) => {
@@ -377,6 +507,15 @@
     });
 
     groups.set(key, group);
+
+    // If Insider.campaign.all() has already been mapped for this
+    // variationId, paint the chip synchronously so it arrives with the
+    // card. Otherwise resolveProductAliases() will backfill on its next
+    // tick. Must run AFTER groups.set — updateGroupProductAlias looks
+    // the group up by builderId.
+    if (group._variationId && paByVariationId.has(group._variationId)) {
+      updateGroupProductAlias(key, paByVariationId.get(group._variationId));
+    }
 
     if (testingVariationId && varIdToBuilder.get(testingVariationId) === key) {
       groupEl.classList.add('is-testing');
@@ -958,6 +1097,7 @@
     outcomes.clear();
     showTags.clear();
     storageSnapshot.clear();
+    paByVariationId.clear();
     ruleIdByTag.clear();
     sourcedRuleIds.clear();
     evalSeenBuilders.clear();
@@ -1434,6 +1574,11 @@
       storageSnapshot.set(bid, next);
       syncGroupStorageDots(group, next);
     });
+
+    // Piggyback the product-alias batch resolve on the storage tick so
+    // we reuse the same cadence without a second interval. No-op when
+    // every known group already has its pa mapped.
+    resolveProductAliases();
   }
 
   // ── Init ─────────────────────────────────────────────────────────

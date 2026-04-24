@@ -29,6 +29,15 @@
         --accent-campaign: #e8a24a;
         --accent-rule:     #5ec4b6;
 
+        /* product-alias tones — drive the .pa-chip in the group header. */
+        --accent-eureka:        oklch(0.74 0.13 232);
+        --accent-eureka-soft:   oklch(0.74 0.13 232 / 0.12);
+        --accent-eureka-border: oklch(0.74 0.13 232 / 0.45);
+
+        --accent-smartrec:        oklch(0.72 0.16 305);
+        --accent-smartrec-soft:   oklch(0.72 0.16 305 / 0.12);
+        --accent-smartrec-border: oklch(0.72 0.16 305 / 0.45);
+
         /* dark theme by default */
         --bg:          oklch(0.17 0.005 60);
         --bg-sunk:     oklch(0.14 0.005 60);
@@ -62,6 +71,14 @@
           --hairline:        rgba(0,0,0,0.07);
           --hairline-strong: rgba(0,0,0,0.12);
           --pending-border:  rgba(180,110,20,0.35);
+
+          --accent-eureka:        oklch(0.54 0.16 232);
+          --accent-eureka-soft:   oklch(0.54 0.16 232 / 0.10);
+          --accent-eureka-border: oklch(0.54 0.16 232 / 0.40);
+
+          --accent-smartrec:        oklch(0.52 0.18 305);
+          --accent-smartrec-soft:   oklch(0.52 0.18 305 / 0.10);
+          --accent-smartrec-border: oklch(0.52 0.18 305 / 0.40);
         }
       }
       [data-theme="light"] {
@@ -79,6 +96,14 @@
         --hairline:        rgba(0,0,0,0.07);
         --hairline-strong: rgba(0,0,0,0.12);
         --pending-border:  rgba(180,110,20,0.35);
+
+        --accent-eureka:        oklch(0.54 0.16 232);
+        --accent-eureka-soft:   oklch(0.54 0.16 232 / 0.10);
+        --accent-eureka-border: oklch(0.54 0.16 232 / 0.40);
+
+        --accent-smartrec:        oklch(0.52 0.18 305);
+        --accent-smartrec-soft:   oklch(0.52 0.18 305 / 0.10);
+        --accent-smartrec-border: oklch(0.52 0.18 305 / 0.40);
       }
       [data-theme="dark"] { color-scheme: dark; }
 
@@ -395,6 +420,43 @@
       }
       [data-theme="light"] .storage-dot::before {
         background: oklch(0.80 0.004 60);
+      }
+
+      /* ── product-alias chip (drawer header) ────────────────────────── */
+      /* Small pill identifying the Insider product that owns the campaign.
+         Hidden until JS resolves Insider.campaign.all()[i].pa for this
+         variationId and tags the element via data-product. */
+      .pa-chip {
+        display: none;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+        padding: 1px 8px 1px 6px;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 600;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        vertical-align: middle;
+        line-height: 1.45;
+      }
+      .pa-chip.is-resolved { display: inline-flex; }
+      .pa-chip svg {
+        display: block;
+        width: 10px;
+        height: 10px;
+        flex-shrink: 0;
+      }
+      .pa-chip[data-product="eureka"] {
+        color: var(--accent-eureka);
+        background: var(--accent-eureka-soft);
+        border: 1px solid var(--accent-eureka-border);
+      }
+      .pa-chip[data-product="smart-recommender"] {
+        color: var(--accent-smartrec);
+        background: var(--accent-smartrec-soft);
+        border: 1px solid var(--accent-smartrec-border);
       }
 
       /* ── group body with animated collapse ─────────────────────────── */
