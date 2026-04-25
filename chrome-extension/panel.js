@@ -151,7 +151,30 @@
   // Every campaign the Insider runtime knows about carries a `pa`
   // (productAlias) field, surfaced via Insider.campaign.all()[i].pa.
   // Multiple aliases collapse to a single canonical product key so
-  // the UI only has to think about "eureka" or "smart-recommender".
+  // the UI only has to think about "eureka", "smart-recommender",
+  // or "web-template".
+  const WEB_TEMPLATE_ALIASES = new Set([
+    'shopping-trigger',
+    'purchase-trigger',
+    'web-versus',
+    'web-survey-questionnaire',
+    'web-lead-collection',
+    'smart-banner',
+    'notification-center',
+    'tab-talk',
+    'category-optimiser',
+    'category-optimizer',
+    'banner-management',
+    'web-instory',
+    'web-social-proof',
+    'responsive-suite',
+    'responsive-web',
+    'responsive-conversion-trigger',
+    'responsive-social-proof',
+    'responsive-lead-collection',
+    'responsive-feedback',
+  ]);
+
   function productFromAlias(pa) {
     if (!pa) return null;
     const s = String(pa).toLowerCase();
@@ -159,12 +182,18 @@
     if (s === 'smart-recommender' ||
         s === 'web-smart-recommender' ||
         s === 'mobile-app-smart-recommender') return 'smart-recommender';
+    if (WEB_TEMPLATE_ALIASES.has(s)) return 'web-template';
+    if (s === 'custom' ||
+        s === 'mobile-experiment' ||
+        s === 'onsite-experiment') return 'experiment';
     return null;
   }
 
   function productLabel(product) {
     if (product === 'eureka') return 'Eureka';
     if (product === 'smart-recommender') return 'Smart Rec';
+    if (product === 'web-template') return 'Web Template';
+    if (product === 'experiment') return 'Experiment';
     return '';
   }
 
@@ -194,6 +223,14 @@
       });
       svg.appendChild(svgEl('path', { d: 'M8 4.5 L4 10' }));
       svg.appendChild(svgEl('path', { d: 'M8 4.5 L12 10' }));
+    } else if (product === 'web-template') {
+      svg.appendChild(svgEl('rect', { x: '3', y: '3', width: '10', height: '10', rx: '1.5' }));
+      svg.appendChild(svgEl('path', { d: 'M3 6.5 L13 6.5' }));
+      svg.appendChild(svgEl('path', { d: 'M5.5 9.75 L10.5 9.75' }));
+    } else if (product === 'experiment') {
+      svg.appendChild(svgEl('path', { d: 'M5.75 3.25 L10.25 3.25 M6.5 3.25 L6.5 7 L4 12 Q3.5 13 4.5 13 L11.5 13 Q12.5 13 12 12 L9.5 7 L9.5 3.25' }));
+      svg.appendChild(svgEl('circle', { cx: '7', cy: '11', r: '0.7', fill: 'currentColor', stroke: 'none' }));
+      svg.appendChild(svgEl('circle', { cx: '9.3', cy: '10.4', r: '0.55', fill: 'currentColor', stroke: 'none' }));
     }
     return svg;
   }
